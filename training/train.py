@@ -16,7 +16,7 @@ import random
 import shutil
 os.environ.setdefault(
     "WANDB_API_KEY",
-    "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",
+    "delete",
 )
 from collections import defaultdict
 
