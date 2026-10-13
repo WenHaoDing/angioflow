@@ -1,0 +1,13 @@
+[build_ghd_dir_index] 1 ambiguous case name(s) excluded (several fitting folders map to the same id): ANSYS30 <- ['ANSYS_UNIGE_30_612_cut1', 'ANSYS_UNIGE_30_614_cut1']
+[data] 82 cases, tensor NORMALIZED (denormalizing with assembled_registered_steady_data_1k.pth)
+[out ] /media/yaplab2/wd8tb/wenhao/datasets/aneux_type0_eval/validation_AneuX_type0
+
+==============================================================================
+TEST 1  mesh size: dataset mesh rigidly placed onto the segmentation .obj
+==============================================================================
+case       ref .obj                            nn_mean   nn_p95  resid_scale
+C0015      merged_reconstruction_remeshed.obj    0.056    0.087       0.9975
+libGL error: No matching fbConfigs or visuals found
+libGL error: failed to load driver: swrast
+2026-08-12 18:13:11.643 (   1.172s) [    7F6FBBB1E740]vtkXOpenGLRenderWindow.:651    ERR| vtkXOpenGLRenderWindow (0x55904acd4230): Cannot create GLX context.  Aborting.
+ERROR:root:Cannot create GLX context.  Aborting.

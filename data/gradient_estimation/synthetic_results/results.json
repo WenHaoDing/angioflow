@@ -1,0 +1,3026 @@
+[
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 4,
+    "radius": 3.6e-05,
+    "rmse": 143.70163300049114,
+    "rmse_rel": 0.027819879744621738
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 4,
+    "radius": 5.411339827700432e-05,
+    "rmse": 223.09678034501752,
+    "rmse_rel": 0.043190362357186755
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 4,
+    "radius": 8.134055203015827e-05,
+    "rmse": 326.85730976145624,
+    "rmse_rel": 0.06327785468647536
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 4,
+    "radius": 0.0001222670468910932,
+    "rmse": 484.65246476795835,
+    "rmse_rel": 0.09382616610719409
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 4,
+    "radius": 0.0001837857056825251,
+    "rmse": 788.3612352442681,
+    "rmse_rel": 0.1526225854353515
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 4,
+    "radius": 0.0002762574747005219,
+    "rmse": 1230.564272519346,
+    "rmse_rel": 0.23823076582156263
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 4,
+    "radius": 0.0004152564098741334,
+    "rmse": 1990.4441189848178,
+    "rmse_rel": 0.38533950430721925
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 4,
+    "radius": 0.0006241926526277209,
+    "rmse": 3205.803985679879,
+    "rmse_rel": 0.6206267771928415
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 4,
+    "radius": 0.0009382551559228818,
+    "rmse": 4815.3527432916035,
+    "rmse_rel": 0.9322269444624123
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 4,
+    "radius": 0.0014103381927196613,
+    "rmse": 5720.2079683332495,
+    "rmse_rel": 1.1074021531315106
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 4,
+    "radius": 0.002119949786886377,
+    "rmse": 5086.285623748761,
+    "rmse_rel": 0.9846781240057675
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 4,
+    "radius": 0.0031866024206953637,
+    "rmse": 5304.107205742453,
+    "rmse_rel": 1.026847235729272
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 4,
+    "radius": 0.004789941276154291,
+    "rmse": 5248.3964017841,
+    "rmse_rel": 1.0160619173286645
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 4,
+    "radius": 0.0072,
+    "rmse": 5251.273843588456,
+    "rmse_rel": 1.0166189749159575
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 8,
+    "radius": 3.6e-05,
+    "rmse": 25.280354907635903,
+    "rmse_rel": 0.004894143641564499
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 8,
+    "radius": 5.411339827700432e-05,
+    "rmse": 44.652374684513944,
+    "rmse_rel": 0.008644464701599628
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 8,
+    "radius": 8.134055203015827e-05,
+    "rmse": 79.35431630964894,
+    "rmse_rel": 0.015362577939135624
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 8,
+    "radius": 0.0001222670468910932,
+    "rmse": 157.07386149823236,
+    "rmse_rel": 0.030408672794200328
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 8,
+    "radius": 0.0001837857056825251,
+    "rmse": 326.0342716758885,
+    "rmse_rel": 0.06311851884534639
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 8,
+    "radius": 0.0002762574747005219,
+    "rmse": 697.5756014951204,
+    "rmse_rel": 0.13504696461111265
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 8,
+    "radius": 0.0004152564098741334,
+    "rmse": 1448.4236622120914,
+    "rmse_rel": 0.2804071969165951
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 8,
+    "radius": 0.0006241926526277209,
+    "rmse": 2841.3100481620036,
+    "rmse_rel": 0.5500626694811616
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 8,
+    "radius": 0.0009382551559228818,
+    "rmse": 4731.3072355689055,
+    "rmse_rel": 0.9159561765587995
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 8,
+    "radius": 0.0014103381927196613,
+    "rmse": 5677.7710636633965,
+    "rmse_rel": 1.0991865917631491
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 8,
+    "radius": 0.002119949786886377,
+    "rmse": 5063.805508157435,
+    "rmse_rel": 0.9803260919561821
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 8,
+    "radius": 0.0031866024206953637,
+    "rmse": 5295.101122480354,
+    "rmse_rel": 1.0251037054151748
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 8,
+    "radius": 0.004789941276154291,
+    "rmse": 5247.348195423429,
+    "rmse_rel": 1.0158589900946968
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 8,
+    "radius": 0.0072,
+    "rmse": 5241.944755043844,
+    "rmse_rel": 1.014812912479373
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 16,
+    "radius": 3.6e-05,
+    "rmse": 12.514770906093181,
+    "rmse_rel": 0.0024227937732469135
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 16,
+    "radius": 5.411339827700432e-05,
+    "rmse": 27.693441396342592,
+    "rmse_rel": 0.005361304483981384
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 16,
+    "radius": 8.134055203015827e-05,
+    "rmse": 61.03748163896104,
+    "rmse_rel": 0.011816535161466466
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 16,
+    "radius": 0.0001222670468910932,
+    "rmse": 136.55527581399133,
+    "rmse_rel": 0.02643638260969455
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 16,
+    "radius": 0.0001837857056825251,
+    "rmse": 304.3982072216192,
+    "rmse_rel": 0.058929890653051605
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 16,
+    "radius": 0.0002762574747005219,
+    "rmse": 668.1125204656263,
+    "rmse_rel": 0.12934306720902974
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 16,
+    "radius": 0.0004152564098741334,
+    "rmse": 1424.7083905218897,
+    "rmse_rel": 0.2758160451477757
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 16,
+    "radius": 0.0006241926526277209,
+    "rmse": 2803.8352944512294,
+    "rmse_rel": 0.5428077544191352
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 16,
+    "radius": 0.0009382551559228818,
+    "rmse": 4702.233364254418,
+    "rmse_rel": 0.9103276281088533
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 16,
+    "radius": 0.0014103381927196613,
+    "rmse": 5676.503052750769,
+    "rmse_rel": 1.098941111524911
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 16,
+    "radius": 0.002119949786886377,
+    "rmse": 5056.012198085328,
+    "rmse_rel": 0.9788173481479763
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 16,
+    "radius": 0.0031866024206953637,
+    "rmse": 5298.818910605412,
+    "rmse_rel": 1.0258234496268133
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 16,
+    "radius": 0.004789941276154291,
+    "rmse": 5247.220031296087,
+    "rmse_rel": 1.0158341781942626
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 16,
+    "radius": 0.0072,
+    "rmse": 5238.621680770633,
+    "rmse_rel": 1.0141695827917914
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 32,
+    "radius": 3.6e-05,
+    "rmse": 11.941021295623274,
+    "rmse_rel": 0.0023117188687137007
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 32,
+    "radius": 5.411339827700432e-05,
+    "rmse": 27.01610623880431,
+    "rmse_rel": 0.00523017596278041
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 32,
+    "radius": 8.134055203015827e-05,
+    "rmse": 60.579526707313896,
+    "rmse_rel": 0.011727877497243288
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 32,
+    "radius": 0.0001222670468910932,
+    "rmse": 136.03292350947063,
+    "rmse_rel": 0.02633525795305239
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 32,
+    "radius": 0.0001837857056825251,
+    "rmse": 303.839282675872,
+    "rmse_rel": 0.058821685803013814
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 32,
+    "radius": 0.0002762574747005219,
+    "rmse": 668.6187861278681,
+    "rmse_rel": 0.12944107757640222
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 32,
+    "radius": 0.0004152564098741334,
+    "rmse": 1421.707040267955,
+    "rmse_rel": 0.2752349995368628
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 32,
+    "radius": 0.0006241926526277209,
+    "rmse": 2806.3075494853583,
+    "rmse_rel": 0.5432863699804995
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 32,
+    "radius": 0.0009382551559228818,
+    "rmse": 4700.239975774297,
+    "rmse_rel": 0.9099417185917283
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 32,
+    "radius": 0.0014103381927196613,
+    "rmse": 5680.290477797447,
+    "rmse_rel": 1.0996743370780264
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 32,
+    "radius": 0.002119949786886377,
+    "rmse": 5054.945279448493,
+    "rmse_rel": 0.9786107983158394
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 32,
+    "radius": 0.0031866024206953637,
+    "rmse": 5294.583896869429,
+    "rmse_rel": 1.0250035732594274
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 32,
+    "radius": 0.004789941276154291,
+    "rmse": 5246.131332827383,
+    "rmse_rel": 1.0156234119013188
+  },
+  {
+    "noise": "none",
+    "offsets": "isotropic",
+    "k": 32,
+    "radius": 0.0072,
+    "rmse": 5239.522262089743,
+    "rmse_rel": 1.0143439305947688
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 4,
+    "radius": 3.6e-05,
+    "rmse": 238.5407012635581,
+    "rmse_rel": 0.046180224154636046
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 4,
+    "radius": 5.411339827700432e-05,
+    "rmse": 361.02356373688554,
+    "rmse_rel": 0.06989226161473482
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 4,
+    "radius": 8.134055203015827e-05,
+    "rmse": 538.2585447428667,
+    "rmse_rel": 0.10420402102327168
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 4,
+    "radius": 0.0001222670468910932,
+    "rmse": 812.0982224184368,
+    "rmse_rel": 0.15721794120756283
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 4,
+    "radius": 0.0001837857056825251,
+    "rmse": 1209.5132230781408,
+    "rmse_rel": 0.2341553934564454
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 4,
+    "radius": 0.0002762574747005219,
+    "rmse": 1858.8222749371428,
+    "rmse_rel": 0.3598582081193105
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 4,
+    "radius": 0.0004152564098741334,
+    "rmse": 2716.809140280535,
+    "rmse_rel": 0.5259599490524601
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 4,
+    "radius": 0.0006241926526277209,
+    "rmse": 3996.199448845275,
+    "rmse_rel": 0.7736431784461298
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 4,
+    "radius": 0.0009382551559228818,
+    "rmse": 5515.838098656797,
+    "rmse_rel": 1.0678372221066594
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 4,
+    "radius": 0.0014103381927196613,
+    "rmse": 5929.912948995838,
+    "rmse_rel": 1.1479999335607802
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 4,
+    "radius": 0.002119949786886377,
+    "rmse": 5132.659974391218,
+    "rmse_rel": 0.9936559541888362
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 4,
+    "radius": 0.0031866024206953637,
+    "rmse": 5334.318744636167,
+    "rmse_rel": 1.0326960306342001
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 4,
+    "radius": 0.004789941276154291,
+    "rmse": 5254.747738535258,
+    "rmse_rel": 1.0172915026920695
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 4,
+    "radius": 0.0072,
+    "rmse": 5245.9646141375215,
+    "rmse_rel": 1.015591136040521
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 8,
+    "radius": 3.6e-05,
+    "rmse": 148.4646922553083,
+    "rmse_rel": 0.02874198294497346
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 8,
+    "radius": 5.411339827700432e-05,
+    "rmse": 228.92662461962783,
+    "rmse_rel": 0.04431898952211936
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 8,
+    "radius": 8.134055203015827e-05,
+    "rmse": 337.9491342281688,
+    "rmse_rel": 0.06542517351904104
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 8,
+    "radius": 0.0001222670468910932,
+    "rmse": 525.70849852997,
+    "rmse_rel": 0.10177439813630673
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 8,
+    "radius": 0.0001837857056825251,
+    "rmse": 781.3740983788441,
+    "rmse_rel": 0.1512699125164944
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 8,
+    "radius": 0.0002762574747005219,
+    "rmse": 1263.929744898871,
+    "rmse_rel": 0.24469014564794014
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 8,
+    "radius": 0.0004152564098741334,
+    "rmse": 2051.754038314367,
+    "rmse_rel": 0.3972087819715495
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 8,
+    "radius": 0.0006241926526277209,
+    "rmse": 3334.4180656465364,
+    "rmse_rel": 0.6455257860866747
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 8,
+    "radius": 0.0009382551559228818,
+    "rmse": 5007.855313178777,
+    "rmse_rel": 0.9694944287141292
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 8,
+    "radius": 0.0014103381927196613,
+    "rmse": 5731.632103932831,
+    "rmse_rel": 1.1096138056502092
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 8,
+    "radius": 0.002119949786886377,
+    "rmse": 5046.133470237154,
+    "rmse_rel": 0.9769048784353662
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 8,
+    "radius": 0.0031866024206953637,
+    "rmse": 5311.672645751536,
+    "rmse_rel": 1.0283118650927194
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 8,
+    "radius": 0.004789941276154291,
+    "rmse": 5250.326095833624,
+    "rmse_rel": 1.016435495939295
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 8,
+    "radius": 0.0072,
+    "rmse": 5239.853675944765,
+    "rmse_rel": 1.0144080905726334
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 16,
+    "radius": 3.6e-05,
+    "rmse": 136.69591616889747,
+    "rmse_rel": 0.026463609842113794
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 16,
+    "radius": 5.411339827700432e-05,
+    "rmse": 205.80560335367642,
+    "rmse_rel": 0.03984288150747062
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 16,
+    "radius": 8.134055203015827e-05,
+    "rmse": 319.9176078125761,
+    "rmse_rel": 0.0619343649177773
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 16,
+    "radius": 0.0001222670468910932,
+    "rmse": 479.6701427590515,
+    "rmse_rel": 0.09286161479178699
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 16,
+    "radius": 0.0001837857056825251,
+    "rmse": 748.3154206902416,
+    "rmse_rel": 0.14486992652739997
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 16,
+    "radius": 0.0002762574747005219,
+    "rmse": 1188.51800961187,
+    "rmse_rel": 0.23009083064217092
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 16,
+    "radius": 0.0004152564098741334,
+    "rmse": 1929.4547324219182,
+    "rmse_rel": 0.37353228009931955
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 16,
+    "radius": 0.0006241926526277209,
+    "rmse": 3235.6911935542403,
+    "rmse_rel": 0.6264127833196084
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 16,
+    "radius": 0.0009382551559228818,
+    "rmse": 4869.552619649061,
+    "rmse_rel": 0.9427197552325771
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 16,
+    "radius": 0.0014103381927196613,
+    "rmse": 5717.813461879681,
+    "rmse_rel": 1.1069385892860966
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 16,
+    "radius": 0.002119949786886377,
+    "rmse": 5068.695075178874,
+    "rmse_rel": 0.9812726863942511
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 16,
+    "radius": 0.0031866024206953637,
+    "rmse": 5306.867469889597,
+    "rmse_rel": 1.0273816083389185
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 16,
+    "radius": 0.004789941276154291,
+    "rmse": 5247.075100146526,
+    "rmse_rel": 1.0158061202865838
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 16,
+    "radius": 0.0072,
+    "rmse": 5236.241668937551,
+    "rmse_rel": 1.013708825028608
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 32,
+    "radius": 3.6e-05,
+    "rmse": 118.52448059919259,
+    "rmse_rel": 0.02294571556505569
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 32,
+    "radius": 5.411339827700432e-05,
+    "rmse": 182.4717174892859,
+    "rmse_rel": 0.0353255640270224
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 32,
+    "radius": 8.134055203015827e-05,
+    "rmse": 272.643220631561,
+    "rmse_rel": 0.05278229239837849
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 32,
+    "radius": 0.0001222670468910932,
+    "rmse": 411.8979862362049,
+    "rmse_rel": 0.07974128202220163
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 32,
+    "radius": 0.0001837857056825251,
+    "rmse": 646.8537586636172,
+    "rmse_rel": 0.12522748282419935
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 32,
+    "radius": 0.0002762574747005219,
+    "rmse": 1066.4529444757698,
+    "rmse_rel": 0.20645967654739372
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 32,
+    "radius": 0.0004152564098741334,
+    "rmse": 1850.0029317753201,
+    "rmse_rel": 0.35815082970568024
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 32,
+    "radius": 0.0006241926526277209,
+    "rmse": 3123.069917808651,
+    "rmse_rel": 0.6046098971414293
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 32,
+    "radius": 0.0009382551559228818,
+    "rmse": 4824.299279998592,
+    "rmse_rel": 0.9339589468768763
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 32,
+    "radius": 0.0014103381927196613,
+    "rmse": 5684.592095223775,
+    "rmse_rel": 1.1005071075692803
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 32,
+    "radius": 0.002119949786886377,
+    "rmse": 5062.93478993879,
+    "rmse_rel": 0.9801575254922641
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 32,
+    "radius": 0.0031866024206953637,
+    "rmse": 5289.5666755877255,
+    "rmse_rel": 1.0240322656285066
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 32,
+    "radius": 0.004789941276154291,
+    "rmse": 5245.299269875791,
+    "rmse_rel": 1.0154623288936317
+  },
+  {
+    "noise": "none",
+    "offsets": "naive",
+    "k": 32,
+    "radius": 0.0072,
+    "rmse": 5241.397795404892,
+    "rmse_rel": 1.014707023972311
+  },
+  {
+    "noise": "none",
+    "offsets": "regular_tet",
+    "k": 4,
+    "radius": 3.6e-05,
+    "rmse": 128.2101069995375,
+    "rmse_rel": 0.024820801853796804
+  },
+  {
+    "noise": "none",
+    "offsets": "regular_tet",
+    "k": 4,
+    "radius": 5.411339827700432e-05,
+    "rmse": 194.844920070505,
+    "rmse_rel": 0.037720950917748845
+  },
+  {
+    "noise": "none",
+    "offsets": "regular_tet",
+    "k": 4,
+    "radius": 8.134055203015827e-05,
+    "rmse": 295.2851198235882,
+    "rmse_rel": 0.057165644901477
+  },
+  {
+    "noise": "none",
+    "offsets": "regular_tet",
+    "k": 4,
+    "radius": 0.0001222670468910932,
+    "rmse": 441.87547221539575,
+    "rmse_rel": 0.08554476551486537
+  },
+  {
+    "noise": "none",
+    "offsets": "regular_tet",
+    "k": 4,
+    "radius": 0.0001837857056825251,
+    "rmse": 692.5035273191847,
+    "rmse_rel": 0.13406503774859851
+  },
+  {
+    "noise": "none",
+    "offsets": "regular_tet",
+    "k": 4,
+    "radius": 0.0002762574747005219,
+    "rmse": 1097.7443773918417,
+    "rmse_rel": 0.21251753325079697
+  },
+  {
+    "noise": "none",
+    "offsets": "regular_tet",
+    "k": 4,
+    "radius": 0.0004152564098741334,
+    "rmse": 1811.5753829124762,
+    "rmse_rel": 0.35071145851745417
+  },
+  {
+    "noise": "none",
+    "offsets": "regular_tet",
+    "k": 4,
+    "radius": 0.0006241926526277209,
+    "rmse": 3035.9285787877075,
+    "rmse_rel": 0.5877397925940462
+  },
+  {
+    "noise": "none",
+    "offsets": "regular_tet",
+    "k": 4,
+    "radius": 0.0009382551559228818,
+    "rmse": 4733.751937599728,
+    "rmse_rel": 0.9164294580037549
+  },
+  {
+    "noise": "none",
+    "offsets": "regular_tet",
+    "k": 4,
+    "radius": 0.0014103381927196613,
+    "rmse": 5723.064894451814,
+    "rmse_rel": 1.1079552389900233
+  },
+  {
+    "noise": "none",
+    "offsets": "regular_tet",
+    "k": 4,
+    "radius": 0.002119949786886377,
+    "rmse": 5051.770842858477,
+    "rmse_rel": 0.9779962441013381
+  },
+  {
+    "noise": "none",
+    "offsets": "regular_tet",
+    "k": 4,
+    "radius": 0.0031866024206953637,
+    "rmse": 5301.5133457823085,
+    "rmse_rel": 1.0263450780943246
+  },
+  {
+    "noise": "none",
+    "offsets": "regular_tet",
+    "k": 4,
+    "radius": 0.004789941276154291,
+    "rmse": 5251.793832285454,
+    "rmse_rel": 1.0167196419906246
+  },
+  {
+    "noise": "none",
+    "offsets": "regular_tet",
+    "k": 4,
+    "radius": 0.0072,
+    "rmse": 5246.567557085423,
+    "rmse_rel": 1.0157078626215157
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 4,
+    "radius": 3.6e-05,
+    "rmse": 360.6046213121127,
+    "rmse_rel": 0.06981115656649184
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 4,
+    "radius": 5.411339827700432e-05,
+    "rmse": 300.2411737895549,
+    "rmse_rel": 0.05812511086203834
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 4,
+    "radius": 8.134055203015827e-05,
+    "rmse": 353.6184438419133,
+    "rmse_rel": 0.0684586693815002
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 4,
+    "radius": 0.0001222670468910932,
+    "rmse": 509.1669710015189,
+    "rmse_rel": 0.09857204547666586
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 4,
+    "radius": 0.0001837857056825251,
+    "rmse": 770.1690534634698,
+    "rmse_rel": 0.14910067480102784
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 4,
+    "radius": 0.0002762574747005219,
+    "rmse": 1184.0405374173029,
+    "rmse_rel": 0.22922401559343505
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 4,
+    "radius": 0.0004152564098741334,
+    "rmse": 1939.8952506005821,
+    "rmse_rel": 0.3755535094628089
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 4,
+    "radius": 0.0006241926526277209,
+    "rmse": 3185.529858612682,
+    "rmse_rel": 0.6167018129098353
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 4,
+    "radius": 0.0009382551559228818,
+    "rmse": 4803.915803037409,
+    "rmse_rel": 0.9300128130299808
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 4,
+    "radius": 0.0014103381927196613,
+    "rmse": 5736.153267725432,
+    "rmse_rel": 1.110489079162344
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 4,
+    "radius": 0.002119949786886377,
+    "rmse": 5064.751368925058,
+    "rmse_rel": 0.9805092056220536
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 4,
+    "radius": 0.0031866024206953637,
+    "rmse": 5306.72216807009,
+    "rmse_rel": 1.0273534786714893
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 4,
+    "radius": 0.004789941276154291,
+    "rmse": 5241.205808442805,
+    "rmse_rel": 1.0146698563070153
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 4,
+    "radius": 0.0072,
+    "rmse": 5233.798220012385,
+    "rmse_rel": 1.0132357861783117
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 8,
+    "radius": 3.6e-05,
+    "rmse": 210.24026174736377,
+    "rmse_rel": 0.040701408029715766
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 8,
+    "radius": 5.411339827700432e-05,
+    "rmse": 142.8646897600792,
+    "rmse_rel": 0.027657851938707696
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 8,
+    "radius": 8.134055203015827e-05,
+    "rmse": 120.93980071986587,
+    "rmse_rel": 0.02341330882686411
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 8,
+    "radius": 0.0001222670468910932,
+    "rmse": 168.61265973514077,
+    "rmse_rel": 0.0326425233959339
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 8,
+    "radius": 0.0001837857056825251,
+    "rmse": 330.2798739263946,
+    "rmse_rel": 0.06394044509340908
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 8,
+    "radius": 0.0002762574747005219,
+    "rmse": 700.7974475735981,
+    "rmse_rel": 0.13567069705303017
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 8,
+    "radius": 0.0004152564098741334,
+    "rmse": 1455.807449028261,
+    "rmse_rel": 0.2818366591780648
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 8,
+    "radius": 0.0006241926526277209,
+    "rmse": 2833.3901448801444,
+    "rmse_rel": 0.5485294178938981
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 8,
+    "radius": 0.0009382551559228818,
+    "rmse": 4716.24408948711,
+    "rmse_rel": 0.9130400307654541
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 8,
+    "radius": 0.0014103381927196613,
+    "rmse": 5695.4226255725,
+    "rmse_rel": 1.102603841235981
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 8,
+    "radius": 0.002119949786886377,
+    "rmse": 5057.233869203358,
+    "rmse_rel": 0.9790538572458998
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 8,
+    "radius": 0.0031866024206953637,
+    "rmse": 5291.82262338202,
+    "rmse_rel": 1.0244690052468184
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 8,
+    "radius": 0.004789941276154291,
+    "rmse": 5250.302888852706,
+    "rmse_rel": 1.0164310031899442
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 8,
+    "radius": 0.0072,
+    "rmse": 5238.338203526536,
+    "rmse_rel": 1.0141147030894773
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 16,
+    "radius": 3.6e-05,
+    "rmse": 150.1348446669987,
+    "rmse_rel": 0.02906531566067237
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 16,
+    "radius": 5.411339827700432e-05,
+    "rmse": 100.91697288365755,
+    "rmse_rel": 0.019536994752210022
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 16,
+    "radius": 8.134055203015827e-05,
+    "rmse": 89.42981633362554,
+    "rmse_rel": 0.017313141709228652
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 16,
+    "radius": 0.0001222670468910932,
+    "rmse": 143.59067299824204,
+    "rmse_rel": 0.02779839847224801
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 16,
+    "radius": 0.0001837857056825251,
+    "rmse": 304.74432003109825,
+    "rmse_rel": 0.05899689627112797
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 16,
+    "radius": 0.0002762574747005219,
+    "rmse": 669.1078526396418,
+    "rmse_rel": 0.12953575827877542
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 16,
+    "radius": 0.0004152564098741334,
+    "rmse": 1423.0095120263868,
+    "rmse_rel": 0.27548715121345657
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 16,
+    "radius": 0.0006241926526277209,
+    "rmse": 2809.532698960255,
+    "rmse_rel": 0.5439107419425756
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 16,
+    "radius": 0.0009382551559228818,
+    "rmse": 4702.758017631507,
+    "rmse_rel": 0.9104291982410324
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 16,
+    "radius": 0.0014103381927196613,
+    "rmse": 5678.683916048295,
+    "rmse_rel": 1.0993633151798718
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 16,
+    "radius": 0.002119949786886377,
+    "rmse": 5054.5563042165995,
+    "rmse_rel": 0.9785354947583991
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 16,
+    "radius": 0.0031866024206953637,
+    "rmse": 5295.970091785247,
+    "rmse_rel": 1.0252719332985962
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 16,
+    "radius": 0.004789941276154291,
+    "rmse": 5248.155844766602,
+    "rmse_rel": 1.0160153467563
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 16,
+    "radius": 0.0072,
+    "rmse": 5239.284226772845,
+    "rmse_rel": 1.014297848210367
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 32,
+    "radius": 3.6e-05,
+    "rmse": 103.73768494526567,
+    "rmse_rel": 0.020083069759916257
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 32,
+    "radius": 5.411339827700432e-05,
+    "rmse": 76.0175153474327,
+    "rmse_rel": 0.014716590836815941
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 32,
+    "radius": 8.134055203015827e-05,
+    "rmse": 75.57075426783888,
+    "rmse_rel": 0.014630100243429051
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 32,
+    "radius": 0.0001222670468910932,
+    "rmse": 139.07846243296422,
+    "rmse_rel": 0.026924858257795392
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 32,
+    "radius": 0.0001837857056825251,
+    "rmse": 303.52233492995373,
+    "rmse_rel": 0.05876032638772626
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 32,
+    "radius": 0.0002762574747005219,
+    "rmse": 668.3602794576827,
+    "rmse_rel": 0.12939103204575944
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 32,
+    "radius": 0.0004152564098741334,
+    "rmse": 1421.2573482212442,
+    "rmse_rel": 0.27514794152366984
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 32,
+    "radius": 0.0006241926526277209,
+    "rmse": 2807.7237621608615,
+    "rmse_rel": 0.5435605412999387
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 32,
+    "radius": 0.0009382551559228818,
+    "rmse": 4702.304737517629,
+    "rmse_rel": 0.9103414455969225
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 32,
+    "radius": 0.0014103381927196613,
+    "rmse": 5678.887471001337,
+    "rmse_rel": 1.0994027223473257
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 32,
+    "radius": 0.002119949786886377,
+    "rmse": 5051.880830554489,
+    "rmse_rel": 0.9780175371403422
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 32,
+    "radius": 0.0031866024206953637,
+    "rmse": 5297.120097628231,
+    "rmse_rel": 1.0254945683764962
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 32,
+    "radius": 0.004789941276154291,
+    "rmse": 5244.9545088705945,
+    "rmse_rel": 1.015395584977749
+  },
+  {
+    "noise": "low",
+    "offsets": "isotropic",
+    "k": 32,
+    "radius": 0.0072,
+    "rmse": 5240.545186312573,
+    "rmse_rel": 1.0145419633399282
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 4,
+    "radius": 3.6e-05,
+    "rmse": 707.7290239536809,
+    "rmse_rel": 0.13701261375437973
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 4,
+    "radius": 5.411339827700432e-05,
+    "rmse": 580.6081820029551,
+    "rmse_rel": 0.11240268788045336
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 4,
+    "radius": 8.134055203015827e-05,
+    "rmse": 621.5542121156016,
+    "rmse_rel": 0.12032962378207664
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 4,
+    "radius": 0.0001222670468910932,
+    "rmse": 815.4577194288684,
+    "rmse_rel": 0.15786832214535151
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 4,
+    "radius": 0.0001837857056825251,
+    "rmse": 1262.6040031498967,
+    "rmse_rel": 0.24443348902366394
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 4,
+    "radius": 0.0002762574747005219,
+    "rmse": 1842.68339022198,
+    "rmse_rel": 0.3567338049889257
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 4,
+    "radius": 0.0004152564098741334,
+    "rmse": 2753.8566995019287,
+    "rmse_rel": 0.5331321615099721
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 4,
+    "radius": 0.0006241926526277209,
+    "rmse": 4148.721100270475,
+    "rmse_rel": 0.8031705673317222
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 4,
+    "radius": 0.0009382551559228818,
+    "rmse": 5520.2680789202295,
+    "rmse_rel": 1.0686948429675116
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 4,
+    "radius": 0.0014103381927196613,
+    "rmse": 5936.242469507335,
+    "rmse_rel": 1.1492252954150215
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 4,
+    "radius": 0.002119949786886377,
+    "rmse": 5190.620330652965,
+    "rmse_rel": 1.0048767740743814
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 4,
+    "radius": 0.0031866024206953637,
+    "rmse": 5338.625594563945,
+    "rmse_rel": 1.0335298141101923
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 4,
+    "radius": 0.004789941276154291,
+    "rmse": 5265.1134230807365,
+    "rmse_rel": 1.019298244658077
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 4,
+    "radius": 0.0072,
+    "rmse": 5258.642221524463,
+    "rmse_rel": 1.0180454540993356
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 8,
+    "radius": 3.6e-05,
+    "rmse": 376.5264947202643,
+    "rmse_rel": 0.07289354745012469
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 8,
+    "radius": 5.411339827700432e-05,
+    "rmse": 311.93060589269913,
+    "rmse_rel": 0.0603881233873816
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 8,
+    "radius": 8.134055203015827e-05,
+    "rmse": 374.0211765843859,
+    "rmse_rel": 0.07240853104629635
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 8,
+    "radius": 0.0001222670468910932,
+    "rmse": 525.3990261853126,
+    "rmse_rel": 0.1017144859193549
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 8,
+    "radius": 0.0001837857056825251,
+    "rmse": 787.4154487804096,
+    "rmse_rel": 0.1524394861542978
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 8,
+    "radius": 0.0002762574747005219,
+    "rmse": 1241.350627383668,
+    "rmse_rel": 0.24031894734701006
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 8,
+    "radius": 0.0004152564098741334,
+    "rmse": 2066.4571042672983,
+    "rmse_rel": 0.4000552181473054
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 8,
+    "radius": 0.0006241926526277209,
+    "rmse": 3356.40263427905,
+    "rmse_rel": 0.6497818828534513
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 8,
+    "radius": 0.0009382551559228818,
+    "rmse": 4992.09947868158,
+    "rmse_rel": 0.9664441820896759
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 8,
+    "radius": 0.0014103381927196613,
+    "rmse": 5763.571247943803,
+    "rmse_rel": 1.1157970558122192
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 8,
+    "radius": 0.002119949786886377,
+    "rmse": 5094.739167399447,
+    "rmse_rel": 0.9863146855595056
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 8,
+    "radius": 0.0031866024206953637,
+    "rmse": 5306.872243307721,
+    "rmse_rel": 1.0273825324475416
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 8,
+    "radius": 0.004789941276154291,
+    "rmse": 5249.181661417539,
+    "rmse_rel": 1.016213939460316
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 8,
+    "radius": 0.0072,
+    "rmse": 5244.57297325964,
+    "rmse_rel": 1.0153217216917625
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 16,
+    "radius": 3.6e-05,
+    "rmse": 284.2857882258914,
+    "rmse_rel": 0.05503623220149677
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 16,
+    "radius": 5.411339827700432e-05,
+    "rmse": 261.763269136546,
+    "rmse_rel": 0.05067599105789477
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 16,
+    "radius": 8.134055203015827e-05,
+    "rmse": 334.0470378617987,
+    "rmse_rel": 0.0646697482020304
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 16,
+    "radius": 0.0001222670468910932,
+    "rmse": 492.45392206908383,
+    "rmse_rel": 0.09533648717605327
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 16,
+    "radius": 0.0001837857056825251,
+    "rmse": 743.9434620852119,
+    "rmse_rel": 0.1440235383542052
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 16,
+    "radius": 0.0002762574747005219,
+    "rmse": 1195.4766166216275,
+    "rmse_rel": 0.231437980331144
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 16,
+    "radius": 0.0004152564098741334,
+    "rmse": 1925.7042956596092,
+    "rmse_rel": 0.3728062152833624
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 16,
+    "radius": 0.0006241926526277209,
+    "rmse": 3213.3624650531046,
+    "rmse_rel": 0.6220900590138256
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 16,
+    "radius": 0.0009382551559228818,
+    "rmse": 4884.5545262143605,
+    "rmse_rel": 0.945624045377876
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 16,
+    "radius": 0.0014103381927196613,
+    "rmse": 5706.06039121467,
+    "rmse_rel": 1.104663256670151
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 16,
+    "radius": 0.002119949786886377,
+    "rmse": 5075.009953309744,
+    "rmse_rel": 0.9824952135606762
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 16,
+    "radius": 0.0031866024206953637,
+    "rmse": 5296.214767479001,
+    "rmse_rel": 1.0253193012250044
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 16,
+    "radius": 0.004789941276154291,
+    "rmse": 5252.119108291058,
+    "rmse_rel": 1.0167826137131497
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 16,
+    "radius": 0.0072,
+    "rmse": 5239.277481463309,
+    "rmse_rel": 1.0142965423539463
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 32,
+    "radius": 3.6e-05,
+    "rmse": 221.57532513084735,
+    "rmse_rel": 0.04289581663622826
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 32,
+    "radius": 5.411339827700432e-05,
+    "rmse": 218.90658249385498,
+    "rmse_rel": 0.042379162109204074
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 32,
+    "radius": 8.134055203015827e-05,
+    "rmse": 280.42239748353074,
+    "rmse_rel": 0.05428830008955904
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 32,
+    "radius": 0.0001222670468910932,
+    "rmse": 415.97393591054015,
+    "rmse_rel": 0.08053036442452025
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 32,
+    "radius": 0.0001837857056825251,
+    "rmse": 659.1006910877134,
+    "rmse_rel": 0.12759842447715677
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 32,
+    "radius": 0.0002762574747005219,
+    "rmse": 1058.4605873919554,
+    "rmse_rel": 0.2049123982854478
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 32,
+    "radius": 0.0004152564098741334,
+    "rmse": 1814.1768364204372,
+    "rmse_rel": 0.35121508622328856
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 32,
+    "radius": 0.0006241926526277209,
+    "rmse": 3084.468624670867,
+    "rmse_rel": 0.5971368899761149
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 32,
+    "radius": 0.0009382551559228818,
+    "rmse": 4848.068570834223,
+    "rmse_rel": 0.9385605564679094
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 32,
+    "radius": 0.0014103381927196613,
+    "rmse": 5691.0522092643505,
+    "rmse_rel": 1.101757751643344
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 32,
+    "radius": 0.002119949786886377,
+    "rmse": 5060.486176011422,
+    "rmse_rel": 0.9796834867247285
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 32,
+    "radius": 0.0031866024206953637,
+    "rmse": 5297.159352858212,
+    "rmse_rel": 1.0255021679823924
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 32,
+    "radius": 0.004789941276154291,
+    "rmse": 5251.2129309471775,
+    "rmse_rel": 1.0166071825492327
+  },
+  {
+    "noise": "low",
+    "offsets": "naive",
+    "k": 32,
+    "radius": 0.0072,
+    "rmse": 5239.444136037706,
+    "rmse_rel": 1.0143288058023274
+  },
+  {
+    "noise": "low",
+    "offsets": "regular_tet",
+    "k": 4,
+    "radius": 3.6e-05,
+    "rmse": 324.57203004446876,
+    "rmse_rel": 0.06283543656232503
+  },
+  {
+    "noise": "low",
+    "offsets": "regular_tet",
+    "k": 4,
+    "radius": 5.411339827700432e-05,
+    "rmse": 282.9919450651377,
+    "rmse_rel": 0.054785750975994994
+  },
+  {
+    "noise": "low",
+    "offsets": "regular_tet",
+    "k": 4,
+    "radius": 8.134055203015827e-05,
+    "rmse": 321.2688888225114,
+    "rmse_rel": 0.06219596580854424
+  },
+  {
+    "noise": "low",
+    "offsets": "regular_tet",
+    "k": 4,
+    "radius": 0.0001222670468910932,
+    "rmse": 457.1215827980979,
+    "rmse_rel": 0.08849633227251334
+  },
+  {
+    "noise": "low",
+    "offsets": "regular_tet",
+    "k": 4,
+    "radius": 0.0001837857056825251,
+    "rmse": 701.7149587272773,
+    "rmse_rel": 0.13584832238286632
+  },
+  {
+    "noise": "low",
+    "offsets": "regular_tet",
+    "k": 4,
+    "radius": 0.0002762574747005219,
+    "rmse": 1068.089490110692,
+    "rmse_rel": 0.20677650316800675
+  },
+  {
+    "noise": "low",
+    "offsets": "regular_tet",
+    "k": 4,
+    "radius": 0.0004152564098741334,
+    "rmse": 1781.497127466865,
+    "rmse_rel": 0.34488846658651306
+  },
+  {
+    "noise": "low",
+    "offsets": "regular_tet",
+    "k": 4,
+    "radius": 0.0006241926526277209,
+    "rmse": 3040.708246077064,
+    "rmse_rel": 0.5886651110224648
+  },
+  {
+    "noise": "low",
+    "offsets": "regular_tet",
+    "k": 4,
+    "radius": 0.0009382551559228818,
+    "rmse": 4716.070846123308,
+    "rmse_rel": 0.9130064917621257
+  },
+  {
+    "noise": "low",
+    "offsets": "regular_tet",
+    "k": 4,
+    "radius": 0.0014103381927196613,
+    "rmse": 5719.284069615494,
+    "rmse_rel": 1.1072232912028916
+  },
+  {
+    "noise": "low",
+    "offsets": "regular_tet",
+    "k": 4,
+    "radius": 0.002119949786886377,
+    "rmse": 5066.641851659059,
+    "rmse_rel": 0.9808751931283961
+  },
+  {
+    "noise": "low",
+    "offsets": "regular_tet",
+    "k": 4,
+    "radius": 0.0031866024206953637,
+    "rmse": 5308.833324500607,
+    "rmse_rel": 1.027762187443914
+  },
+  {
+    "noise": "low",
+    "offsets": "regular_tet",
+    "k": 4,
+    "radius": 0.004789941276154291,
+    "rmse": 5245.448554397357,
+    "rmse_rel": 1.015491229591216
+  },
+  {
+    "noise": "low",
+    "offsets": "regular_tet",
+    "k": 4,
+    "radius": 0.0072,
+    "rmse": 5234.754537689494,
+    "rmse_rel": 1.0134209242468175
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 4,
+    "radius": 3.6e-05,
+    "rmse": 1607.0035175211988,
+    "rmse_rel": 0.3111074221854604
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 4,
+    "radius": 5.411339827700432e-05,
+    "rmse": 1100.0379664446143,
+    "rmse_rel": 0.21296156001861732
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 4,
+    "radius": 8.134055203015827e-05,
+    "rmse": 788.5074662475747,
+    "rmse_rel": 0.15265089498787351
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 4,
+    "radius": 0.0001222670468910932,
+    "rmse": 686.8320944639665,
+    "rmse_rel": 0.13296707820062784
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 4,
+    "radius": 0.0001837857056825251,
+    "rmse": 828.8231373740633,
+    "rmse_rel": 0.16045579670780594
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 4,
+    "radius": 0.0002762574747005219,
+    "rmse": 1221.6902953596073,
+    "rmse_rel": 0.2365128105535135
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 4,
+    "radius": 0.0004152564098741334,
+    "rmse": 1947.6037968851053,
+    "rmse_rel": 0.3770458434479109
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 4,
+    "radius": 0.0006241926526277209,
+    "rmse": 3151.2863307818893,
+    "rmse_rel": 0.610072446169925
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 4,
+    "radius": 0.0009382551559228818,
+    "rmse": 4797.491352107551,
+    "rmse_rel": 0.9287690731464316
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 4,
+    "radius": 0.0014103381927196613,
+    "rmse": 5729.542246489154,
+    "rmse_rel": 1.1092092202495247
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 4,
+    "radius": 0.002119949786886377,
+    "rmse": 5066.064377695614,
+    "rmse_rel": 0.9807633972087307
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 4,
+    "radius": 0.0031866024206953637,
+    "rmse": 5295.916322530482,
+    "rmse_rel": 1.0252615238538998
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 4,
+    "radius": 0.004789941276154291,
+    "rmse": 5247.366114587737,
+    "rmse_rel": 1.0158624591505854
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 4,
+    "radius": 0.0072,
+    "rmse": 5245.718823528253,
+    "rmse_rel": 1.0155435522723382
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 8,
+    "radius": 3.6e-05,
+    "rmse": 1054.6228661730809,
+    "rmse_rel": 0.20416943565813994
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 8,
+    "radius": 5.411339827700432e-05,
+    "rmse": 691.7354483761087,
+    "rmse_rel": 0.13391634170816674
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 8,
+    "radius": 8.134055203015827e-05,
+    "rmse": 466.01586179673956,
+    "rmse_rel": 0.09021821786971097
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 8,
+    "radius": 0.0001222670468910932,
+    "rmse": 339.4598883015012,
+    "rmse_rel": 0.06571764755546108
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 8,
+    "radius": 0.0001837857056825251,
+    "rmse": 392.03668267429424,
+    "rmse_rel": 0.07589623819683401
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 8,
+    "radius": 0.0002762574747005219,
+    "rmse": 713.3988143883067,
+    "rmse_rel": 0.13811025533836896
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 8,
+    "radius": 0.0004152564098741334,
+    "rmse": 1442.0605776608534,
+    "rmse_rel": 0.2791753372409316
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 8,
+    "radius": 0.0006241926526277209,
+    "rmse": 2831.034662861047,
+    "rmse_rel": 0.5480734089735841
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 8,
+    "radius": 0.0009382551559228818,
+    "rmse": 4726.880987525009,
+    "rmse_rel": 0.9150992782360041
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 8,
+    "radius": 0.0014103381927196613,
+    "rmse": 5678.740012676348,
+    "rmse_rel": 1.0993741751917863
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 8,
+    "radius": 0.002119949786886377,
+    "rmse": 5064.333968261619,
+    "rmse_rel": 0.9804283990506893
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 8,
+    "radius": 0.0031866024206953637,
+    "rmse": 5297.968204943968,
+    "rmse_rel": 1.025658757488629
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 8,
+    "radius": 0.004789941276154291,
+    "rmse": 5242.470784521645,
+    "rmse_rel": 1.0149147490174066
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 8,
+    "radius": 0.0072,
+    "rmse": 5241.448033478798,
+    "rmse_rel": 1.0147167497989802
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 16,
+    "radius": 3.6e-05,
+    "rmse": 740.3885123658887,
+    "rmse_rel": 0.14333531880078224
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 16,
+    "radius": 5.411339827700432e-05,
+    "rmse": 488.4060117312793,
+    "rmse_rel": 0.09455283304169596
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 16,
+    "radius": 8.134055203015827e-05,
+    "rmse": 333.49320280924803,
+    "rmse_rel": 0.06456252865108582
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 16,
+    "radius": 0.0001222670468910932,
+    "rmse": 258.84669213426554,
+    "rmse_rel": 0.05011135710227998
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 16,
+    "radius": 0.0001837857056825251,
+    "rmse": 336.4154229917979,
+    "rmse_rel": 0.06512825509669669
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 16,
+    "radius": 0.0002762574747005219,
+    "rmse": 675.2324965772541,
+    "rmse_rel": 0.13072145710672414
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 16,
+    "radius": 0.0004152564098741334,
+    "rmse": 1425.390769226069,
+    "rmse_rel": 0.2759481500730586
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 16,
+    "radius": 0.0006241926526277209,
+    "rmse": 2804.963170943615,
+    "rmse_rel": 0.5430261053712419
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 16,
+    "radius": 0.0009382551559228818,
+    "rmse": 4702.23294941185,
+    "rmse_rel": 0.9103275477975158
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 16,
+    "radius": 0.0014103381927196613,
+    "rmse": 5685.130042103849,
+    "rmse_rel": 1.100611251253664
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 16,
+    "radius": 0.002119949786886377,
+    "rmse": 5051.258867931184,
+    "rmse_rel": 0.9778971284503036
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 16,
+    "radius": 0.0031866024206953637,
+    "rmse": 5295.571330381276,
+    "rmse_rel": 1.0251947351897535
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 16,
+    "radius": 0.004789941276154291,
+    "rmse": 5244.342670137282,
+    "rmse_rel": 1.0152771362195236
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 16,
+    "radius": 0.0072,
+    "rmse": 5239.912346843679,
+    "rmse_rel": 1.0144194489498362
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 32,
+    "radius": 3.6e-05,
+    "rmse": 518.5757946956371,
+    "rmse_rel": 0.10039354421849173
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 32,
+    "radius": 5.411339827700432e-05,
+    "rmse": 349.5883582760648,
+    "rmse_rel": 0.06767846602916909
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 32,
+    "radius": 8.134055203015827e-05,
+    "rmse": 236.64484502222976,
+    "rmse_rel": 0.0458131963655596
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 32,
+    "radius": 0.0001222670468910932,
+    "rmse": 206.942155132115,
+    "rmse_rel": 0.04006291194929301
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 32,
+    "radius": 0.0001837857056825251,
+    "rmse": 318.7370011354995,
+    "rmse_rel": 0.06170580567947097
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 32,
+    "radius": 0.0002762574747005219,
+    "rmse": 671.1547339943141,
+    "rmse_rel": 0.12993202373484228
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 32,
+    "radius": 0.0004152564098741334,
+    "rmse": 1422.221185765169,
+    "rmse_rel": 0.27533453539880864
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 32,
+    "radius": 0.0006241926526277209,
+    "rmse": 2806.431059876553,
+    "rmse_rel": 0.5433102809421114
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 32,
+    "radius": 0.0009382551559228818,
+    "rmse": 4701.0414361285075,
+    "rmse_rel": 0.9100968770976455
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 32,
+    "radius": 0.0014103381927196613,
+    "rmse": 5681.876442083313,
+    "rmse_rel": 1.0999813714157078
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 32,
+    "radius": 0.002119949786886377,
+    "rmse": 5053.500424922752,
+    "rmse_rel": 0.9783310820849567
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 32,
+    "radius": 0.0031866024206953637,
+    "rmse": 5292.947880580653,
+    "rmse_rel": 1.024686849117442
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 32,
+    "radius": 0.004789941276154291,
+    "rmse": 5246.006013909649,
+    "rmse_rel": 1.0155991508184883
+  },
+  {
+    "noise": "high",
+    "offsets": "isotropic",
+    "k": 32,
+    "radius": 0.0072,
+    "rmse": 5237.569759056974,
+    "rmse_rel": 1.013965936285042
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 4,
+    "radius": 3.6e-05,
+    "rmse": 3432.713070783369,
+    "rmse_rel": 0.6645551816843873
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 4,
+    "radius": 5.411339827700432e-05,
+    "rmse": 2290.6322336646367,
+    "rmse_rel": 0.4434543432049007
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 4,
+    "radius": 8.134055203015827e-05,
+    "rmse": 1559.7505752117095,
+    "rmse_rel": 0.3019595012803093
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 4,
+    "radius": 0.0001222670468910932,
+    "rmse": 1287.7869761318668,
+    "rmse_rel": 0.24930878003701012
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 4,
+    "radius": 0.0001837857056825251,
+    "rmse": 1397.5999194239307,
+    "rmse_rel": 0.27056798783444513
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 4,
+    "radius": 0.0002762574747005219,
+    "rmse": 1900.1633417315038,
+    "rmse_rel": 0.3678616210431537
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 4,
+    "radius": 0.0004152564098741334,
+    "rmse": 2742.2494933464363,
+    "rmse_rel": 0.5308850674952804
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 4,
+    "radius": 0.0006241926526277209,
+    "rmse": 4130.172645605147,
+    "rmse_rel": 0.7995796841422722
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 4,
+    "radius": 0.0009382551559228818,
+    "rmse": 5439.226638956445,
+    "rmse_rel": 1.0530056467694713
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 4,
+    "radius": 0.0014103381927196613,
+    "rmse": 5936.3095925985235,
+    "rmse_rel": 1.149238290092159
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 4,
+    "radius": 0.002119949786886377,
+    "rmse": 5190.2637832926575,
+    "rmse_rel": 1.0048077483821891
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 4,
+    "radius": 0.0031866024206953637,
+    "rmse": 5339.152239878624,
+    "rmse_rel": 1.0336317698710038
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 4,
+    "radius": 0.004789941276154291,
+    "rmse": 5272.443845310105,
+    "rmse_rel": 1.0207173758164378
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 4,
+    "radius": 0.0072,
+    "rmse": 5245.321238550038,
+    "rmse_rel": 1.0154665819133293
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 8,
+    "radius": 3.6e-05,
+    "rmse": 1710.8470150153337,
+    "rmse_rel": 0.33121097669787075
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 8,
+    "radius": 5.411339827700432e-05,
+    "rmse": 1147.64489024308,
+    "rmse_rel": 0.22217800987677697
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 8,
+    "radius": 8.134055203015827e-05,
+    "rmse": 843.0327062142755,
+    "rmse_rel": 0.16320669444016697
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 8,
+    "radius": 0.0001222670468910932,
+    "rmse": 722.4692495330437,
+    "rmse_rel": 0.13986624383821508
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 8,
+    "radius": 0.0001837857056825251,
+    "rmse": 866.7474019752992,
+    "rmse_rel": 0.16779773471212905
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 8,
+    "radius": 0.0002762574747005219,
+    "rmse": 1260.2213553173312,
+    "rmse_rel": 0.2439722209448556
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 8,
+    "radius": 0.0004152564098741334,
+    "rmse": 2040.2899385694213,
+    "rmse_rel": 0.3949893926046685
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 8,
+    "radius": 0.0006241926526277209,
+    "rmse": 3362.925897754452,
+    "rmse_rel": 0.6510447523256969
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 8,
+    "radius": 0.0009382551559228818,
+    "rmse": 5028.5507114571155,
+    "rmse_rel": 0.9735009488861613
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 8,
+    "radius": 0.0014103381927196613,
+    "rmse": 5736.690759042389,
+    "rmse_rel": 1.1105931346521065
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 8,
+    "radius": 0.002119949786886377,
+    "rmse": 5056.2395464227875,
+    "rmse_rel": 0.9788613615894118
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 8,
+    "radius": 0.0031866024206953637,
+    "rmse": 5298.2615306760035,
+    "rmse_rel": 1.0257155438063683
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 8,
+    "radius": 0.004789941276154291,
+    "rmse": 5249.501962249295,
+    "rmse_rel": 1.0162759480153722
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 8,
+    "radius": 0.0072,
+    "rmse": 5247.037580925961,
+    "rmse_rel": 1.0157988567629728
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 16,
+    "radius": 3.6e-05,
+    "rmse": 1236.8705247927107,
+    "rmse_rel": 0.23945162306737872
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 16,
+    "radius": 5.411339827700432e-05,
+    "rmse": 840.6220816004973,
+    "rmse_rel": 0.16274001020377762
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 16,
+    "radius": 8.134055203015827e-05,
+    "rmse": 633.2182777321217,
+    "rmse_rel": 0.12258772548913141
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 16,
+    "radius": 0.0001222670468910932,
+    "rmse": 604.0349138871786,
+    "rmse_rel": 0.11693797986162636
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 16,
+    "radius": 0.0001837857056825251,
+    "rmse": 779.8591965257378,
+    "rmse_rel": 0.15097663549174287
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 16,
+    "radius": 0.0002762574747005219,
+    "rmse": 1181.034571393209,
+    "rmse_rel": 0.22864207639371542
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 16,
+    "radius": 0.0004152564098741334,
+    "rmse": 1965.8970278990266,
+    "rmse_rel": 0.38058731668187296
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 16,
+    "radius": 0.0006241926526277209,
+    "rmse": 3237.1492621288758,
+    "rmse_rel": 0.6266950577208021
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 16,
+    "radius": 0.0009382551559228818,
+    "rmse": 4880.8551510207435,
+    "rmse_rel": 0.9449078658128441
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 16,
+    "radius": 0.0014103381927196613,
+    "rmse": 5716.098610482851,
+    "rmse_rel": 1.1066066030821573
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 16,
+    "radius": 0.002119949786886377,
+    "rmse": 5073.548952450045,
+    "rmse_rel": 0.982212371484529
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 16,
+    "radius": 0.0031866024206953637,
+    "rmse": 5289.334447660129,
+    "rmse_rel": 1.0239873075241053
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 16,
+    "radius": 0.004789941276154291,
+    "rmse": 5248.536790952073,
+    "rmse_rel": 1.0160890959326154
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 16,
+    "radius": 0.0072,
+    "rmse": 5245.532753003292,
+    "rmse_rel": 1.0155075299981275
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 32,
+    "radius": 3.6e-05,
+    "rmse": 903.5204544317841,
+    "rmse_rel": 0.17491680410487964
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 32,
+    "radius": 5.411339827700432e-05,
+    "rmse": 644.2334683680899,
+    "rmse_rel": 0.12472020841544354
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 32,
+    "radius": 8.134055203015827e-05,
+    "rmse": 493.81038052729457,
+    "rmse_rel": 0.09559909039355373
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 32,
+    "radius": 0.0001222670468910932,
+    "rmse": 492.9374859563946,
+    "rmse_rel": 0.09543010259929471
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 32,
+    "radius": 0.0001837857056825251,
+    "rmse": 694.6527637985838,
+    "rmse_rel": 0.13448111861804438
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 32,
+    "radius": 0.0002762574747005219,
+    "rmse": 1062.4657142677274,
+    "rmse_rel": 0.2056877697667555
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 32,
+    "radius": 0.0004152564098741334,
+    "rmse": 1821.999808893156,
+    "rmse_rel": 0.3527295725161185
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 32,
+    "radius": 0.0006241926526277209,
+    "rmse": 3115.710804302364,
+    "rmse_rel": 0.6031852115028797
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 32,
+    "radius": 0.0009382551559228818,
+    "rmse": 4845.719927803308,
+    "rmse_rel": 0.938105871539709
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 32,
+    "radius": 0.0014103381927196613,
+    "rmse": 5694.039693343346,
+    "rmse_rel": 1.1023361128357763
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 32,
+    "radius": 0.002119949786886377,
+    "rmse": 5066.856162276856,
+    "rmse_rel": 0.9809166825359317
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 32,
+    "radius": 0.0031866024206953637,
+    "rmse": 5291.798343234353,
+    "rmse_rel": 1.0244643047380337
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 32,
+    "radius": 0.004789941276154291,
+    "rmse": 5242.497040914364,
+    "rmse_rel": 1.014919832116831
+  },
+  {
+    "noise": "high",
+    "offsets": "naive",
+    "k": 32,
+    "radius": 0.0072,
+    "rmse": 5243.0511909425295,
+    "rmse_rel": 1.0150271126453967
+  },
+  {
+    "noise": "high",
+    "offsets": "regular_tet",
+    "k": 4,
+    "radius": 3.6e-05,
+    "rmse": 1453.2175931468332,
+    "rmse_rel": 0.28133527671168057
+  },
+  {
+    "noise": "high",
+    "offsets": "regular_tet",
+    "k": 4,
+    "radius": 5.411339827700432e-05,
+    "rmse": 978.2875015410408,
+    "rmse_rel": 0.18939131087289168
+  },
+  {
+    "noise": "high",
+    "offsets": "regular_tet",
+    "k": 4,
+    "radius": 8.134055203015827e-05,
+    "rmse": 736.6822267224998,
+    "rmse_rel": 0.14261780140904917
+  },
+  {
+    "noise": "high",
+    "offsets": "regular_tet",
+    "k": 4,
+    "radius": 0.0001222670468910932,
+    "rmse": 627.6959669453252,
+    "rmse_rel": 0.12151863518867127
+  },
+  {
+    "noise": "high",
+    "offsets": "regular_tet",
+    "k": 4,
+    "radius": 0.0001837857056825251,
+    "rmse": 743.8754003830599,
+    "rmse_rel": 0.1440103619669259
+  },
+  {
+    "noise": "high",
+    "offsets": "regular_tet",
+    "k": 4,
+    "radius": 0.0002762574747005219,
+    "rmse": 1076.423161124309,
+    "rmse_rel": 0.20838985801018362
+  },
+  {
+    "noise": "high",
+    "offsets": "regular_tet",
+    "k": 4,
+    "radius": 0.0004152564098741334,
+    "rmse": 1847.724141998709,
+    "rmse_rel": 0.35770966799982556
+  },
+  {
+    "noise": "high",
+    "offsets": "regular_tet",
+    "k": 4,
+    "radius": 0.0006241926526277209,
+    "rmse": 3079.1933305198845,
+    "rmse_rel": 0.5961156207961235
+  },
+  {
+    "noise": "high",
+    "offsets": "regular_tet",
+    "k": 4,
+    "radius": 0.0009382551559228818,
+    "rmse": 4728.3787003371635,
+    "rmse_rel": 0.9153892275529056
+  },
+  {
+    "noise": "high",
+    "offsets": "regular_tet",
+    "k": 4,
+    "radius": 0.0014103381927196613,
+    "rmse": 5706.921146883216,
+    "rmse_rel": 1.10482989443681
+  },
+  {
+    "noise": "high",
+    "offsets": "regular_tet",
+    "k": 4,
+    "radius": 0.002119949786886377,
+    "rmse": 5065.057138965765,
+    "rmse_rel": 0.9805684010924485
+  },
+  {
+    "noise": "high",
+    "offsets": "regular_tet",
+    "k": 4,
+    "radius": 0.0031866024206953637,
+    "rmse": 5299.203786178095,
+    "rmse_rel": 1.0258979595118096
+  },
+  {
+    "noise": "high",
+    "offsets": "regular_tet",
+    "k": 4,
+    "radius": 0.004789941276154291,
+    "rmse": 5251.443627848882,
+    "rmse_rel": 1.0166518442550803
+  },
+  {
+    "noise": "high",
+    "offsets": "regular_tet",
+    "k": 4,
+    "radius": 0.0072,
+    "rmse": 5248.257980382723,
+    "rmse_rel": 1.0160351196739685
+  }
+]
