@@ -6,12 +6,18 @@ first upload if missing), next to the wall graphs that extract_pyg_stable.py bui
     interior/<tag>/part_jJJ_NNNN.json  cases + per-case records
     interior/<tag>/manifest.json       written by --finalize
 
+--lean stores only vel + press per frame (no gradients; ~0.11 GB/case instead of
+~0.44) under interior_lean/<tag>/ instead (150-case parts). Training that doesn't
+supervise gradients (load_grad=False, e.g. train_joint.py) needs only the lean data.
+"lean" is part of each part's settings, so the two variants can never be mixed.
+
 Every part unzips into the same flat folder, which is the default interior_dir of
 angioflow.data.datasets_interior (<save_dir>/interior/) -- so unzipping the wall zips
 and all interior parts into one save_dir gives a root the existing loader reads:
     interior/interior_static_<tag>_<case>.pt   {"pos": [P, 3], "wall_dist": [P]}
     interior/interior_<tag>_<case>_<t>.pt      {"vel": [P, 3], "press": [P, 1],
                                                 "grad_v": [P, 9], "grad_p": [P, 3]}
+                                               (--lean: vel + press only)
 No pool graph (edge_index): train_joint.py doesn't load it, and AneuG-Flow's
 validation needs shape_remeshed_cfd.obj, which isn't on the Hub. Use the loader
 with load_edge_index=False.
@@ -37,6 +43,7 @@ skips every case already listed in an uploaded part JSON.
 Without --execute nothing is uploaded: the first part is built locally in --scratch.
 
     python -m angioflow.huggingface.extract_interior_pyg_stable --dataset aneugv2 --max_cases 2   # smoke test
+    python -m angioflow.huggingface.extract_interior_pyg_stable --dataset aneugv2 --lean --execute --yes
     python -m angioflow.huggingface.extract_interior_pyg_stable --dataset aneugv2 --num_jobs 4 --job_index 0 --execute --yes
     python -m angioflow.huggingface.extract_interior_pyg_stable --dataset aneugv2 --finalize --execute --yes
 """
@@ -57,6 +64,7 @@ import zlib
 import numpy as np
 import torch
 from huggingface_hub import CommitOperationAdd, HfApi, hf_hub_download
+from huggingface_hub.errors import RemoteEntryNotFoundError, RepositoryNotFoundError
 from scipy.spatial import cKDTree
 
 from angioflow.data.dataset_tags import DATASET_TAGS
@@ -64,12 +72,14 @@ from angioflow.data.dataset_tags import DATASET_TAGS
 DATASET_PREFIX = {"aneug_flow": "transient_data", "angioflow": "cfd_data", "aneugv2": "cfd_data"}
 OUT_REPO = "whding123/AngioFlow-PyG"
 OUT_PREFIX = "interior"
+OUT_PREFIX_LEAN = "interior_lean"
 REPO_TYPE = "dataset"
 BLOOD_NAME = "blood_data.pt"
 REG_NAME = "wall_mesh_registration.pt"
 ZIP_DIR = "interior"            # every entry lives under interior/ inside each part zip
 N_FRAMES = 80
-PART_SIZE = 50                  # ~400 MB/case -> ~20 GB per part
+PART_SIZE = 50                  # ~440 MB/case -> ~22 GB per part
+PART_SIZE_LEAN = 150            # ~110 MB/case (--lean) -> ~16 GB per part
 MAX_RETRIES = 5
 RETRY_DELAY = 10                # seconds; doubles each retry
 
@@ -78,6 +88,8 @@ VEL_KEYS = ["x_velocity", "y_velocity", "z_velocity"]
 PRESS_KEY = "absolute_pressure"
 VGRAD_KEYS = [f"d{c}_velocity_d{x}" for c in "xyz" for x in "xyz"]   # row-major dvi/dxj
 PGRAD_KEYS = ["dp_dx", "dp_dy", "dp_dz"]
+# part settings that must agree across every part of one dataset
+CONFIG_KEYS = ("lean", "n_frames", "pool_ratio", "near_decay", "far_floor", "min_wall_dist", "seed")
 
 
 # ----------------------------------------------------------------------------
@@ -205,8 +217,10 @@ def load_blood(path):
         return torch.load(path, weights_only=False)
 
 
-def add_case(zf, tag, cid, case_dir, args):
-    """Sample one case's interior pool and write its static + frames into an open zip."""
+def build_case(tag, cid, case_dir, args):
+    """One case's zip entries [(name, bytes)] + manifest record. Everything is built in
+    memory first (~0.4 GB), so a case that fails part-way (e.g. a missing gradient key)
+    leaves nothing in the part."""
     reg_path = os.path.join(case_dir, REG_NAME)
     wall_pos = torch.load(reg_path, weights_only=False)["pos"].numpy().astype(np.float64)
     blood = load_blood(os.path.join(case_dir, BLOOD_NAME))
@@ -222,20 +236,22 @@ def add_case(zf, tag, cid, case_dir, args):
     pool_t = torch.from_numpy(pool)
     center = wall_pos.mean(0, keepdims=True)
 
-    zf.writestr(f"{ZIP_DIR}/interior_static_{tag}_{cid}.pt", _torch_bytes({
+    entries = [(f"{ZIP_DIR}/interior_static_{tag}_{cid}.pt", _torch_bytes({
         "pos":       torch.from_numpy(int_pos[pool] - center).float(),   # [P, 3]
         "wall_dist": torch.from_numpy(wall_dist[pool]).float(),          # [P]
-    }))
+    }))]
     n = args.n_frames
     vel = torch.cat([blood[k][:n, pool_t] for k in VEL_KEYS], dim=-1)       # [T, P, 3]
     press = blood[PRESS_KEY][:n, pool_t]                                    # [T, P, 1]
-    grad_v = torch.cat([blood[k][:n, pool_t] for k in VGRAD_KEYS], dim=-1)  # [T, P, 9]
-    grad_p = torch.cat([blood[k][:n, pool_t] for k in PGRAD_KEYS], dim=-1)  # [T, P, 3]
-    for t in range(n):
-        zf.writestr(f"{ZIP_DIR}/interior_{tag}_{cid}_{t}.pt", _torch_bytes({
-            "vel": vel[t].clone(), "press": press[t].clone(),
-            "grad_v": grad_v[t].clone(), "grad_p": grad_p[t].clone()}))
-    return dict(n_pool=int(len(pool)), n_interior=int(len(int_pos)), n_frames=n,
+    if args.lean:                     # gradient keys are never read
+        frames = [{"vel": vel[t].clone(), "press": press[t].clone()} for t in range(n)]
+    else:
+        grad_v = torch.cat([blood[k][:n, pool_t] for k in VGRAD_KEYS], dim=-1)  # [T, P, 9]
+        grad_p = torch.cat([blood[k][:n, pool_t] for k in PGRAD_KEYS], dim=-1)  # [T, P, 3]
+        frames = [{"vel": vel[t].clone(), "press": press[t].clone(),
+                   "grad_v": grad_v[t].clone(), "grad_p": grad_p[t].clone()} for t in range(n)]
+    entries += [(f"{ZIP_DIR}/interior_{tag}_{cid}_{t}.pt", _torch_bytes(f)) for t, f in enumerate(frames)]
+    return entries, dict(n_pool=int(len(pool)), n_interior=int(len(int_pos)), n_frames=n,
                 registration_sha256=sha256_file(reg_path),
                 vel_max_t0=float(vel[0].norm(dim=1).max()))
 
@@ -258,17 +274,39 @@ PART_RE = re.compile(r"part_j(\d+)_(\d+)\.json$")
 
 
 def parts_on_hub(api, folder, out_repo):
-    """{part file stem: [case ids]} from the part JSONs already uploaded."""
-    try:
-        files = [f.path for f in api.list_repo_tree(out_repo, path_in_repo=folder, repo_type=REPO_TYPE)]
-    except Exception:
-        return {}
+    """{part file stem: part JSON} for every part already uploaded. Only a confirmed-
+    missing repo or folder means "no parts yet"; any other listing error is retried, then
+    raised -- never read as empty, or a resume would renumber and overwrite existing parts."""
+    def _list():
+        try:
+            return [f.path for f in api.list_repo_tree(out_repo, path_in_repo=folder, repo_type=REPO_TYPE)]
+        except (RepositoryNotFoundError, RemoteEntryNotFoundError):
+            return []
     parts = {}
-    for path in files:
+    for path in with_retry(_list, f"list {folder}"):
         if PART_RE.search(path):
-            with open(hf_hub_download(out_repo, path, repo_type=REPO_TYPE, token=api.token)) as f:
+            local = with_retry(lambda: hf_hub_download(out_repo, path, repo_type=REPO_TYPE, token=api.token),
+                               f"download {path}")
+            with open(local) as f:
                 parts[os.path.basename(path)[:-len(".json")]] = json.load(f)
     return parts
+
+
+def check_config(parts, config, where):
+    """Abort if any existing part was built with settings other than `config` -- a resume
+    must not mix configurations in one dataset."""
+    bad = {s: {k: p.get(k) for k in config} for s, p in parts.items()
+           if any(p.get(k) != v for k, v in config.items())}
+    if bad:
+        raise SystemExit(f"[abort] {where}: part(s) built with settings other than {config}: "
+                         f"{dict(list(bad.items())[:5])} -- rerun with the same settings or a new --out_prefix")
+
+
+def assert_free(api, repo, paths):
+    """Never overwrite: abort if any target path already exists on the Hub."""
+    taken = [p for p in paths if with_retry(lambda: api.file_exists(repo, p, repo_type=REPO_TYPE), f"check {p}")]
+    if taken:
+        raise SystemExit(f"[abort] refusing to overwrite existing {taken}")
 
 
 def extract(args, api):
@@ -284,6 +322,7 @@ def extract(args, api):
         mine = mine[:args.max_cases]
 
     parts = parts_on_hub(api, folder, args.out_repo)
+    check_config(parts, {k: getattr(args, k) for k in CONFIG_KEYS}, folder)
     done = {c for p in parts.values() for c in p["cases"]}
     todo = [c for c in mine if c not in done]
     own = [int(PART_RE.search(s + ".json")[2]) for s in parts
@@ -309,16 +348,19 @@ def extract(args, api):
             for cid in batch:
                 t0 = time.time()
                 try:
-                    records[cid] = add_case(zf, tag, cid, os.path.join(case_root, cid), args)
-                    print(f"[ok] {tag}/{cid} pool {records[cid]['n_pool']}/{records[cid]['n_interior']} "
-                          f"({time.time() - t0:.1f}s)", flush=True)
+                    entries, record = build_case(tag, cid, os.path.join(case_root, cid), args)
                 except Exception as e:
                     failed[cid] = repr(e)
                     print(f"[fail] {tag}/{cid}: {e}", flush=True)
+                    continue
+                for name, data in entries:      # write errors (e.g. disk full) stop the Job
+                    zf.writestr(name, data)
+                del entries
+                records[cid] = record
+                print(f"[ok] {tag}/{cid} pool {record['n_pool']}/{record['n_interior']} "
+                      f"({time.time() - t0:.1f}s)", flush=True)
         part_meta = dict(dataset=tag, part=stem, cases=sorted(records), records=records,
-                         n_frames=args.n_frames, pool_ratio=args.pool_ratio, near_decay=args.near_decay,
-                         far_floor=args.far_floor, min_wall_dist=args.min_wall_dist, seed=args.seed,
-                         git_commit=git_commit())
+                         **{k: getattr(args, k) for k in CONFIG_KEYS}, git_commit=git_commit())
         json_path = os.path.join(args.scratch, stem + ".json")
         with open(json_path, "w") as f:
             json.dump(part_meta, f, indent=1)
@@ -326,6 +368,7 @@ def extract(args, api):
         if not args.execute or not args.yes:
             break
         if records:
+            assert_free(api, args.out_repo, [f"{folder}/{stem}.zip", f"{folder}/{stem}.json"])
             ops = [CommitOperationAdd(path_in_repo=f"{folder}/{stem}.zip", path_or_fileobj=zip_path),
                    CommitOperationAdd(path_in_repo=f"{folder}/{stem}.json", path_or_fileobj=json_path)]
             with_retry(lambda: api.create_commit(
@@ -343,6 +386,10 @@ def finalize(args, api):
     tag = args.dataset
     folder = f"{args.out_prefix}/{tag}"
     parts = parts_on_hub(api, folder, args.out_repo)
+    if not parts:
+        raise SystemExit(f"[abort] no parts under {folder} -- nothing to finalize")
+    config = {k: parts[min(parts)][k] for k in CONFIG_KEYS}
+    check_config(parts, config, folder)
     all_cases = [c for p in parts.values() for c in p["cases"]]
     dupes = sorted({c for c in all_cases if all_cases.count(c) > 1})
     print(f"[plan] {len(parts)} part(s), {len(all_cases)} case(s) -> {folder}/manifest.json")
@@ -351,9 +398,7 @@ def finalize(args, api):
     manifest = dict(dataset=tag, n_cases=len(all_cases), created=time.strftime("%Y-%m-%d %H:%M:%S"),
                     parts={s: p["cases"] for s, p in sorted(parts.items())},
                     records={c: r for p in parts.values() for c, r in p["records"].items()},
-                    config={k: next(iter(parts.values()))[k] for k in
-                            ("n_frames", "pool_ratio", "near_decay", "far_floor", "min_wall_dist", "seed")}
-                    if parts else {})
+                    config=config)
     if not args.execute or not args.yes:
         print("[dry run only] pass --execute --yes to upload manifest.json.")
         return
@@ -371,10 +416,13 @@ def parse_args():
     p.add_argument("--dataset", required=True, choices=list(DATASET_TAGS))
     p.add_argument("--data_root", default="/data", help="mount point of the source dataset repo")
     p.add_argument("--out_repo", default=OUT_REPO)
-    p.add_argument("--out_prefix", default=OUT_PREFIX)
+    p.add_argument("--out_prefix", default=None,
+                   help=f"default: {OUT_PREFIX_LEAN} with --lean, else {OUT_PREFIX}")
     p.add_argument("--scratch", default="/tmp/interior_pyg_stable")
     p.add_argument("--n_frames", type=int, default=N_FRAMES)
-    p.add_argument("--part_size", type=int, default=PART_SIZE)
+    p.add_argument("--part_size", type=int, default=None,
+                   help=f"cases per part; default {PART_SIZE_LEAN} with --lean, else {PART_SIZE}")
+    p.add_argument("--lean", action="store_true", help="store only vel + press (no gradients)")
     p.add_argument("--num_jobs", type=int, default=1, help="split the dataset over this many parallel Jobs")
     p.add_argument("--job_index", type=int, default=0, help="which split this Job runs (0..num_jobs-1)")
     p.add_argument("--max_cases", type=int, default=None, help="smoke test: only the first N assigned cases")
@@ -390,6 +438,10 @@ def parse_args():
     p.add_argument("--yes", action="store_true", help="confirm --execute")
     args = p.parse_args()
     assert 0 <= args.job_index < args.num_jobs, "--job_index must be in [0, --num_jobs)"
+    if args.out_prefix is None:
+        args.out_prefix = OUT_PREFIX_LEAN if args.lean else OUT_PREFIX
+    if args.part_size is None:
+        args.part_size = PART_SIZE_LEAN if args.lean else PART_SIZE
     return args
 
 

@@ -9,7 +9,7 @@ repo doesn't exist. The dependency header above is what `uv` reads to install ex
 these packages there -- no requirements.txt, no pre-baked image.
 
 hf jobs uv run --flavor cpu-upgrade --timeout 6h --secrets HF_TOKEN \
-    angioflow/huggingface/register_cfd_shapes_aneugv2.py -- --execute --yes
+    huggingface/register_cfd_shapes_aneugv2.py -- --execute --yes
 
 
 

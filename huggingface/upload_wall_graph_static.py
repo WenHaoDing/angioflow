@@ -19,7 +19,7 @@ or changed. Batched commits with retry, like upload_wall_mesh_registration.py.
 
     python -m angioflow.huggingface.upload_wall_graph_static                   # dry run
     python -m angioflow.huggingface.upload_wall_graph_static --execute --yes   # upload all
-    python -m angioflow.huggingface.upload_wall_graph_static --datasets aneugv2 --execute --yes
+    python -m huggingface.upload_wall_graph_static --datasets aneugv2 --execute --yes
 """
 from __future__ import annotations
 

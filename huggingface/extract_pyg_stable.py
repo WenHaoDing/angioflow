@@ -61,6 +61,7 @@ import zipfile
 import numpy as np
 import torch
 from huggingface_hub import CommitOperationAdd, HfApi, hf_hub_download
+from huggingface_hub.errors import RemoteEntryNotFoundError, RepositoryNotFoundError
 
 from angioflow.data.dataset_tags import DATASET_TAGS
 
@@ -144,8 +145,9 @@ def _torch_bytes(obj):
     return buf.getvalue()
 
 
-def add_case(zf, tag, cid, case_dir, n_frames):
-    """Write one case's static + WSS frames into an open zip; return its manifest record."""
+def build_case(tag, cid, case_dir, n_frames):
+    """One case's zip entries [(name, bytes)] + manifest record. Everything is built in
+    memory first, so a case that fails part-way leaves nothing in the part."""
     static = torch.load(os.path.join(case_dir, STATIC_NAME), weights_only=False)
     meta = static.pop("meta")
     reg_sha = sha256_file(os.path.join(case_dir, REG_NAME))
@@ -157,28 +159,51 @@ def add_case(zf, tag, cid, case_dir, n_frames):
     if wss.shape[1] != N:
         raise ValueError(f"wall_data.pt has {wss.shape[1]} nodes, {STATIC_NAME} has {N}")
 
-    zf.writestr(f"{tag}/static_{tag}_{cid}.pt", _torch_bytes(static))
-    for t in range(n_frames):
-        zf.writestr(f"{tag}/wss_{tag}_{cid}_{t}.pt", _torch_bytes(torch.from_numpy(wss[t].copy())))
-    return dict(n_nodes=int(N), n_frames=n_frames, n_orphans=int(static["orphan_mask"].sum()),
+    entries = [(f"{tag}/static_{tag}_{cid}.pt", _torch_bytes(static))]
+    entries += [(f"{tag}/wss_{tag}_{cid}_{t}.pt", _torch_bytes(torch.from_numpy(wss[t].copy())))
+                for t in range(n_frames)]
+    return entries, dict(n_nodes=int(N), n_frames=n_frames, n_orphans=int(static["orphan_mask"].sum()),
                 lap_k=int(meta["lap_k"]), laplacian=meta["laplacian"],
                 registration_sha256=reg_sha,
                 wss_max_t0=float(np.linalg.norm(wss[0], axis=1).max()))
 
 
 def parts_on_hub(api, tag, out_repo, out_prefix):
-    """{part_index: [case ids]} from the part JSONs already uploaded."""
+    """{part_index: part JSON} for every part already uploaded. Only a confirmed-missing
+    repo or folder means "no parts yet"; any other listing error is retried, then raised --
+    never read as empty, or a resume would renumber from 0 and overwrite existing parts."""
     folder = f"{out_prefix}/_parts/{tag}"
-    try:
-        files = [f.path for f in api.list_repo_tree(out_repo, path_in_repo=folder, repo_type=REPO_TYPE)]
-    except Exception:
-        return {}
+
+    def _list():
+        try:
+            return [f.path for f in api.list_repo_tree(out_repo, path_in_repo=folder, repo_type=REPO_TYPE)]
+        except (RepositoryNotFoundError, RemoteEntryNotFoundError):
+            return []
     parts = {}
-    for path in files:
+    for path in with_retry(_list, f"list {folder}"):
         if path.endswith(".json"):
-            with open(hf_hub_download(out_repo, path, repo_type=REPO_TYPE, token=api.token)) as f:
-                parts[int(os.path.basename(path)[len("part_"):-len(".json")])] = list(json.load(f)["cases"])
+            local = with_retry(lambda: hf_hub_download(out_repo, path, repo_type=REPO_TYPE, token=api.token),
+                               f"download {path}")
+            with open(local) as f:
+                parts[int(os.path.basename(path)[len("part_"):-len(".json")])] = json.load(f)
     return parts
+
+
+def check_config(parts, config, where):
+    """Abort if any existing part was built with settings other than `config` -- a resume
+    must not mix configurations in one dataset (5)."""
+    bad = {i: {k: p.get(k) for k in config} for i, p in parts.items()
+           if any(p.get(k) != v for k, v in config.items())}
+    if bad:
+        raise SystemExit(f"[abort] {where}: part(s) built with settings other than {config}: "
+                         f"{dict(list(bad.items())[:5])} -- rerun with the same settings or a new --out_prefix")
+
+
+def assert_free(api, repo, paths):
+    """Never overwrite: abort if any target path already exists on the Hub."""
+    taken = [p for p in paths if with_retry(lambda: api.file_exists(repo, p, repo_type=REPO_TYPE), f"check {p}")]
+    if taken:
+        raise SystemExit(f"[abort] refusing to overwrite existing {taken}")
 
 
 def extract(args, api):
@@ -192,7 +217,8 @@ def extract(args, api):
         cases = cases[:args.max_cases]
 
     parts = parts_on_hub(api, tag, args.out_repo, args.out_prefix)
-    done = {c for cs in parts.values() for c in cs}
+    check_config(parts, {"n_frames": args.n_frames}, f"{args.out_prefix}/_parts/{tag}")
+    done = {c for p in parts.values() for c in p["cases"]}
     todo = [c for c in cases if c not in done]
     next_idx = max(parts, default=-1) + 1
     batches = [todo[i:i + args.part_size] for i in range(0, len(todo), args.part_size)]
@@ -214,11 +240,15 @@ def extract(args, api):
             for cid in batch:
                 t0 = time.time()
                 try:
-                    records[cid] = add_case(zf, tag, cid, os.path.join(case_root, cid), args.n_frames)
-                    print(f"[ok] {tag}/{cid} N={records[cid]['n_nodes']} ({time.time() - t0:.1f}s)", flush=True)
+                    entries, record = build_case(tag, cid, os.path.join(case_root, cid), args.n_frames)
                 except Exception as e:
                     failed[cid] = repr(e)
                     print(f"[fail] {tag}/{cid}: {e}", flush=True)
+                    continue
+                for name, data in entries:      # write errors (e.g. disk full) stop the Job
+                    zf.writestr(name, data)
+                records[cid] = record
+                print(f"[ok] {tag}/{cid} N={record['n_nodes']} ({time.time() - t0:.1f}s)", flush=True)
         part_meta = dict(dataset=tag, part=idx, cases=sorted(records), records=records,
                          n_frames=args.n_frames, git_commit=git_commit())
         json_path = zip_path[:-len(".zip")] + ".json"
@@ -229,6 +259,7 @@ def extract(args, api):
             break
         if records:
             folder = f"{args.out_prefix}/_parts/{tag}"
+            assert_free(api, args.out_repo, [f"{folder}/part_{idx:04d}.zip", f"{folder}/part_{idx:04d}.json"])
             ops = [CommitOperationAdd(path_in_repo=f"{folder}/part_{idx:04d}.zip", path_or_fileobj=zip_path),
                    CommitOperationAdd(path_in_repo=f"{folder}/part_{idx:04d}.json", path_or_fileobj=json_path)]
             with_retry(lambda: api.create_commit(
@@ -246,7 +277,13 @@ def assemble(args, api):
     tag = args.dataset
     folder = f"{args.out_prefix}/_parts/{tag}"
     parts = parts_on_hub(api, tag, args.out_repo, args.out_prefix)
-    all_cases = [c for i in sorted(parts) for c in parts[i]]
+    if not parts:
+        raise SystemExit(f"[abort] no parts under {folder} -- nothing to assemble")
+    check_config(parts, {"n_frames": parts[min(parts)]["n_frames"]}, folder)
+    eig = {(r["lap_k"], r["laplacian"]) for p in parts.values() for r in p["records"].values()}
+    if len(eig) > 1:
+        raise SystemExit(f"[abort] parts mix eigen settings (lap_k, laplacian): {sorted(eig)}")
+    all_cases = [c for i in sorted(parts) for c in parts[i]["cases"]]
     dupes = sorted({c for c in all_cases if all_cases.count(c) > 1})
     print(f"[plan] {len(parts)} part(s), {len(all_cases)} case(s) -> {args.out_prefix}/{tag}.zip")
     if dupes:
@@ -264,12 +301,10 @@ def assemble(args, api):
     with zipfile.ZipFile(final_path, "w", compression=zipfile.ZIP_STORED, allowZip64=True) as zout:
         for idx in sorted(parts):
             part_dir = os.path.join(args.scratch, "_dl")
-            zip_local = hf_hub_download(args.out_repo, f"{folder}/part_{idx:04d}.zip", repo_type=REPO_TYPE,
-                                        token=api.token, local_dir=part_dir)
-            json_local = hf_hub_download(args.out_repo, f"{folder}/part_{idx:04d}.json", repo_type=REPO_TYPE,
-                                         token=api.token, local_dir=part_dir)
-            with open(json_local) as f:
-                pm = json.load(f)
+            zip_local = with_retry(lambda: hf_hub_download(
+                args.out_repo, f"{folder}/part_{idx:04d}.zip", repo_type=REPO_TYPE,
+                token=api.token, local_dir=part_dir), f"download part {idx:04d}")
+            pm = parts[idx]
             manifest["records"].update(pm["records"])
             manifest["n_frames"] = pm["n_frames"]
             with zipfile.ZipFile(zip_local) as zin:

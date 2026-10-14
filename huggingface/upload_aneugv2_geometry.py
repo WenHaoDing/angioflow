@@ -20,7 +20,7 @@ chunk is lost, not the whole upload -- same reasoning as upload_wall_mesh_regist
 Skip-already-uploaded + retry-with-backoff logic mirrors upload_angioflow.py.
 
     python -m angioflow.huggingface.upload_aneugv2_geometry                  # dry run
-    python -m angioflow.huggingface.upload_aneugv2_geometry --execute --yes  # apply
+    python -m huggingface.upload_aneugv2_geometry --execute --yes  # apply
 """
 from __future__ import annotations
 
