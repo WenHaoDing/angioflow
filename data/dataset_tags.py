@@ -6,7 +6,8 @@ pytorch3d/pyvista via angioflow.data.datasets."""
 # wss_<tag>_<cid>_<t>.pt) and carried as Data.version.
 #   aneug_flow: whding123/AneuG-Flow, synthetic geometries (formerly "v1")
 #   angioflow:  whding123/AngioFlow, real patient geometries (formerly "v2")
-DATASET_TAGS = ("aneug_flow", "angioflow")
+#   aneugv2:    whding123/AneuGv2, newer synthetic geometries
+DATASET_TAGS = ("aneug_flow", "angioflow", "aneugv2")
 # Pre-rename tags still found in older processed roots, anomaly JSONs and saved
 # checkpoint args. Map them on read only; nothing writes them anymore.
 LEGACY_TAGS = {"v1": "aneug_flow", "v2": "angioflow"}

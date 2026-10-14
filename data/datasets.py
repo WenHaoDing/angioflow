@@ -249,7 +249,18 @@ class AngioFlowWallDataset(Dataset):
 
     @lru_cache(maxsize=2048)
     def _load_static(self, version, cid):
-        return torch.load(self._static_path(version, cid), weights_only=False)
+        s = torch.load(self._static_path(version, cid), weights_only=False)
+        # Precomputed statics (Angioflow_PyG_stable) carry 64 cot modes; keep only lap_k,
+        # here and not in a transform: this cache holds every static per DataLoader
+        # worker, and a transform would only run after it (~9 MB/case at 64 modes).
+        # clone() so the full 64-column tensor is freed rather than kept behind a view.
+        k = s["cot_eigvec"].shape[1]
+        if k < self.lap_k:
+            raise ValueError(f"{version}/{cid}: static has {k} cot modes < lap_k={self.lap_k}")
+        if k > self.lap_k:
+            s["cot_eigvec"] = s["cot_eigvec"][:, :self.lap_k].clone()
+            s["cot_eigval"] = s["cot_eigval"][:self.lap_k].clone()
+        return s
 
     def len(self):
         return len(self._index)
