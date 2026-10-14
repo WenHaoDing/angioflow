@@ -1,1 +1,3 @@
 AneuG/
+__pycache__/
+*.pyc
