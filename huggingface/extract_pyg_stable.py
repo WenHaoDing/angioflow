@@ -1,7 +1,8 @@
 """Build the training graph dataset for one CFD dataset on a Hugging Face Job and
-upload it to whding123/AngioFlow as a single zip:
+upload it to the public dataset whding123/AngioFlow-PyG (created on the first
+upload if missing) as a single zip:
 
-    Angioflow_PyG_stable/<tag>.zip      tag = aneug_flow | angioflow | aneugv2
+    wall/<tag>.zip      tag = aneug_flow | angioflow | aneugv2
 
 Unzipped, every zip lands in its own per-dataset folder -- the per_version_dirs
 layout angioflow.data.datasets.AngioFlowWallDataset reads -- so all three can be
@@ -31,7 +32,7 @@ the registration that is next to it (meta.source_sha256), and wall_data.pt must 
 
 Resumable in two stages, so a timeout never loses more than one part:
   1. extract (default): cases are processed in parts of --part_size; each part is
-     uploaded as Angioflow_PyG_stable/_parts/<tag>/part_NNNN.zip plus a small
+     uploaded as wall/_parts/<tag>/part_NNNN.zip plus a small
      part_NNNN.json listing its cases. A rerun reads those JSONs and only processes
      cases not in any part yet.
   2. --assemble: streams every part into one <tag>.zip (one part on disk at a time),
@@ -64,8 +65,8 @@ from huggingface_hub import CommitOperationAdd, HfApi, hf_hub_download
 from angioflow.data.dataset_tags import DATASET_TAGS
 
 DATASET_PREFIX = {"aneug_flow": "transient_data", "angioflow": "cfd_data", "aneugv2": "cfd_data"}
-OUT_REPO = "whding123/AngioFlow"
-OUT_PREFIX = "Angioflow_PyG_stable"
+OUT_REPO = "whding123/AngioFlow-PyG"
+OUT_PREFIX = "wall"
 REPO_TYPE = "dataset"
 STATIC_NAME = "wall_graph_static.pt"
 REG_NAME = "wall_mesh_registration.pt"
@@ -92,6 +93,11 @@ def git_commit():
                                        stderr=subprocess.DEVNULL).strip()
     except Exception:
         return None
+
+
+def ensure_repo(api, repo_id):
+    """Create the output dataset (public) if it doesn't exist yet."""
+    api.create_repo(repo_id, repo_type=REPO_TYPE, private=False, exist_ok=True)
 
 
 def with_retry(fn, what):
@@ -197,6 +203,8 @@ def extract(args, api):
         print("[local only] no --execute --yes: building the first part in --scratch, no upload")
 
     os.makedirs(args.scratch, exist_ok=True)
+    if args.execute and args.yes:
+        ensure_repo(api, args.out_repo)
     failed = {}
     for bi, batch in enumerate(batches):
         idx = next_idx + bi

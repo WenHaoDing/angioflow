@@ -3,7 +3,7 @@
 ## Inference: match the new precomputed graph features (not started)
 
 Graphs built by `data/precompute_wall_static.py` → `huggingface/extract_pyg_stable.py`
-(`Angioflow_PyG_stable/`) differ from the old pipeline in the cotangent-Laplacian
+(`whding123/AngioFlow-PyG`) differ from the old pipeline in the cotangent-Laplacian
 eigenpairs and at orphan nodes. Any model trained on them needs
 `deploy/mesh_to_graph.py` to compute its inputs the same way, or deploy-time inputs
 won't match training.

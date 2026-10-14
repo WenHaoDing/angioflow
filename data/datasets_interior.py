@@ -247,6 +247,10 @@ class _InteriorMixin:
         # interior data lives in its own folder — easy to inspect / wipe / rsync
         return self._interior_dir or os.path.join(self.save_dir, "interior")
 
+    def _sanity_interior(self, version):
+        return dict(static=lambda cid: self._interior_static_path(version, cid),
+                    frame=lambda cid, t: self._interior_frame_path(version, cid, t))
+
     def _interior_static_path(self, version, cid):
         return os.path.join(self.interior_dir, f"interior_static_{version}_{cid}.pt")
 

@@ -209,8 +209,8 @@ def process_case(reg_path, lap_k=LAP_K, knn_k=KNN_K):
 
 
 def render_sanity(static, out_dir, dataset, cid):
-    from angioflow.data.datasets import (_cot_eigvec_figure, _geo_dist_figure,
-                                         _mesh_figure, _vis_mesh_and_remap)
+    from angioflow.visualize.data_sanity import (_cot_eigvec_figure, _geo_dist_figure,
+                                                 _mesh_figure, _vis_mesh_and_remap)
     os.makedirs(out_dir, exist_ok=True)
     pos, faces = static["pos"].numpy(), static["faces"].numpy()
     vis_pos, vis_faces, idx = _vis_mesh_and_remap(pos, faces)

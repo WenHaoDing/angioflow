@@ -29,7 +29,8 @@ class AngioFlowWallDataset(Dataset):
                  lap_k=3, decimate_ratio=0.5, decimate_method="quadric",
                  case_pattern={"aneug_flow": "stable_*", "angioflow": "*"},
                  transform=None, pre_transform=None, redo=False, exclude_keys=None,
-                 freeze_dataset=False, per_version_dirs=False, max_cases_per_version=None):
+                 freeze_dataset=False, per_version_dirs=False, max_cases_per_version=None,
+                 sanity_n_normal=5, sanity_z=3.5):
         assert save_dir is not None, "save_dir is required"
         assert decimate_method in ("quadric", "fps"), "decimate_method must be 'quadric' or 'fps'"
         self.case_roots = {"aneug_flow": case_root_aneug_flow, "angioflow": case_root_angioflow}
@@ -50,6 +51,10 @@ class AngioFlowWallDataset(Dataset):
         # dirs (e.g. mid-download) — only cases already fully processed on disk
         # are kept, so the dataset is guaranteed not to touch raw sim data.
         self.freeze_dataset = freeze_dataset
+        # sanity renders (angioflow.visualize.data_sanity) for every outlier + sanity_n_normal
+        # spread-out normal cases per dataset, only where missing; 0/None disables.
+        self.sanity_n_normal = sanity_n_normal
+        self.sanity_z = sanity_z
 
         # case_dir_by_key[(version, cid)] = case_dir.  cid = folder basename (str).
         self.case_dir_by_key = {}
@@ -93,6 +98,27 @@ class AngioFlowWallDataset(Dataset):
         super().__init__(root=case_root_angioflow or case_root_aneug_flow,
                          transform=transform, pre_transform=pre_transform)
         self._rebuild_successful_index()
+        # rank 0 only: DDP ranks each build the dataset and would race on the same files
+        if self.sanity_n_normal and int(os.environ.get("RANK", os.environ.get("LOCAL_RANK", 0))) == 0:
+            self.render_sanity()
+
+    def render_sanity(self, render_all=False, redo=False, workers=1):
+        """Render missing sanity images into <save_dir>/sanity/<version>/ -- see
+        angioflow.visualize.data_sanity for what is selected and drawn."""
+        from angioflow.visualize.data_sanity import render_dataset_sanity
+        for version in sorted({v for v, _ in self.case_keys}):
+            render_dataset_sanity(
+                os.path.join(self.save_dir, "sanity"), version,
+                [cid for v, cid in self.case_keys if v == version],
+                static_path=lambda cid, v=version: self._static_path(v, cid),
+                wss_path=lambda cid, t, v=version: self._wss_path(v, cid, t),
+                n_frames=self.n_frames, interior=self._sanity_interior(version),
+                n_normal=self.sanity_n_normal or 0, z_thresh=self.sanity_z,
+                render_all=render_all, redo=redo, workers=workers)
+
+    def _sanity_interior(self, version):
+        """Interior file paths for render_sanity; None = wall-only dataset."""
+        return None
 
     @staticmethod
     def _parse_case_id(case_dir):
@@ -250,7 +276,7 @@ class AngioFlowWallDataset(Dataset):
     @lru_cache(maxsize=2048)
     def _load_static(self, version, cid):
         s = torch.load(self._static_path(version, cid), weights_only=False)
-        # Precomputed statics (Angioflow_PyG_stable) carry 64 cot modes; keep only lap_k,
+        # Precomputed statics (whding123/AngioFlow-PyG) carry 64 cot modes; keep only lap_k,
         # here and not in a transform: this cache holds every static per DataLoader
         # worker, and a transform would only run after it (~9 MB/case at 64 modes).
         # clone() so the full 64-column tensor is freed rather than kept behind a view.
@@ -287,126 +313,6 @@ class AngioFlowWallDataset(Dataset):
         )
 
 
-def _trisurf_panel(ax, pos, faces, scalars, cmap, clim, title):
-    """One 3D trisurf subplot colored by a per-node scalar field -- matplotlib,
-    no pyvista (consistent with how extract_ghd_graphs_aneugv2.py renders its
-    sanity figures, since HF Jobs is where extraction will eventually run)."""
-    tri = ax.plot_trisurf(pos[:, 0], pos[:, 1], pos[:, 2], triangles=faces,
-                          cmap=cmap, linewidth=0, antialiased=False)
-    tri.set_array(scalars[faces].mean(axis=1))
-    tri.set_clim(*clim)
-    ax.figure.colorbar(tri, ax=ax, shrink=0.5)
-    lo, hi = pos.min(0), pos.max(0)
-    ax.set_xlim(lo[0], hi[0]); ax.set_ylim(lo[1], hi[1]); ax.set_zlim(lo[2], hi[2])
-    ax.set_box_aspect((hi - lo).clip(min=1e-9))
-    ax.set_axis_off()
-    ax.set_title(title, fontsize=9)
-
-
-def _geo_dist_figure(pos, faces, geo_dist, global_geo_dist, out_path, version, cid):
-    """inlet/outlet_0/outlet_1/global geo_dist, one panel each, single figure."""
-    import matplotlib
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-    names = ["inlet", "outlet_0", "outlet_1", "global"]
-    fields = [geo_dist[:, 0], geo_dist[:, 1], geo_dist[:, 2], global_geo_dist]
-    fig = plt.figure(figsize=(5 * len(names), 5))
-    for i, (name, field) in enumerate(zip(names, fields)):
-        ax = fig.add_subplot(1, len(names), i + 1, projection="3d")
-        _trisurf_panel(ax, pos, faces, field, "viridis", (0, 1), f"geo_dist -> {name}")
-    fig.suptitle(f"{version}/{cid}: geo_dist", fontsize=11)
-    fig.savefig(out_path, dpi=110, bbox_inches="tight")
-    plt.close(fig)
-
-
-def _cot_eigvec_figure(pos, faces, cot_eigvec, cot_eigval, out_path, version, cid, mode_ids=None):
-    """Cotangent-Laplacian eigenvector modes, one panel each, single figure.
-    Signed basis functions -> symmetric coolwarm scale around 0.
-    mode_ids: subset of mode indices to draw (default: all)."""
-    import matplotlib
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-    mode_ids = list(range(cot_eigvec.shape[1])) if mode_ids is None else list(mode_ids)
-    n_modes = len(mode_ids)
-    fig = plt.figure(figsize=(5 * n_modes, 5))
-    for i, mi in enumerate(mode_ids):
-        vals = cot_eigvec[:, mi]
-        clim = float(np.abs(vals).max()) or 1.0
-        ax = fig.add_subplot(1, n_modes, i + 1, projection="3d")
-        _trisurf_panel(ax, pos, faces, vals, "coolwarm", (-clim, clim),
-                       f"mode {mi} (λ={cot_eigval[mi]:.3g})")
-    fig.suptitle(f"{version}/{cid}: cot_eigvec", fontsize=11)
-    fig.savefig(out_path, dpi=110, bbox_inches="tight")
-    plt.close(fig)
-
-
-def _vis_mesh_and_remap(pos, faces, max_faces=3000):
-    """Decimate a disposable copy for sanity rendering only -- the stored static/
-    WSS data is untouched. matplotlib's 3D trisurf render cost scales with face
-    count; at full res (tens of thousands of faces) a single frame already takes
-    seconds, and an 80-frame GIF becomes unusably slow (~9 min, observed).
-    decimate_zone_mesh uses vtkDecimatePro, a pure geometry filter (no render
-    window) -- same call _process_case already uses for decimate_method="quadric",
-    so it needs nothing beyond what the extraction pipeline already depends on."""
-    if len(faces) <= max_faces:
-        return pos, faces, np.arange(len(pos))
-    vis_pos, vis_faces = decimate_zone_mesh(pos, faces, ratio=max_faces / len(faces))
-    _, orig_idx = cKDTree(pos).query(vis_pos, k=1)
-    return vis_pos, vis_faces, orig_idx
-
-
-def _mesh_figure(pos, faces, out_path, version, cid):
-    """Static mesh, edges visible -- good for checking decimation quality."""
-    import matplotlib
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-    fig = plt.figure(figsize=(10, 10))
-    ax = fig.add_subplot(111, projection="3d")
-    ax.plot_trisurf(pos[:, 0], pos[:, 1], pos[:, 2], triangles=faces,
-                    color="lightsteelblue", linewidth=0.1, edgecolor="dimgrey", antialiased=False)
-    lo, hi = pos.min(0), pos.max(0)
-    ax.set_xlim(lo[0], hi[0]); ax.set_ylim(lo[1], hi[1]); ax.set_zlim(lo[2], hi[2])
-    ax.set_box_aspect((hi - lo).clip(min=1e-9))
-    ax.set_axis_off()
-    ax.set_title(f"{version}/{cid}  {len(pos)} nodes  {len(faces)} faces", fontsize=10)
-    fig.savefig(out_path, dpi=150, bbox_inches="tight")
-    plt.close(fig)
-
-
-def wss_sanity_video(save_dir, version, cid, n_frames=80, out_dir=None, redo=False):
-    """Render mesh/geo_dist/cotangent-Laplacian sanity views for one processed
-    case, all into their own subfolder: <save_dir>/sanity/<version>_<cid>/.
-    No WSS animation -- an 80-frame matplotlib 3D re-render per case was ~9 min,
-    not worth it for a sanity check; n_frames is kept for signature compat.
-
-    Reads static_{version}_{cid}.pt directly from save_dir/<version>/ (no Dataset
-    object needed). matplotlib only, no pyvista -- pyvista/VTK needs a working
-    X/EGL/OSMesa backend for off-screen rendering, which isn't present in HF
-    Jobs' default `uv run` containers (verified: a pv.Plotter.screenshot() there
-    silently renders nothing, no X server/EGL/OSMesa found), and this extraction
-    pipeline is moving to HF Jobs.
-    """
-    if out_dir is None:
-        out_dir = os.path.join(save_dir, "sanity", f"{version}_{cid}")
-    cot_path = os.path.join(out_dir, "cot_eigvec.png")
-    if not redo and os.path.exists(cot_path):
-        print(f"[skip] {version}/{cid}: sanity exists at {out_dir}")
-        return
-    os.makedirs(out_dir, exist_ok=True)
-
-    static = torch.load(os.path.join(save_dir, version, f"static_{version}_{cid}.pt"), weights_only=False)
-    pos   = static["pos"].numpy()
-    faces = static["faces"].numpy()
-    vis_pos, vis_faces, orig_idx = _vis_mesh_and_remap(pos, faces)
-
-    _mesh_figure(vis_pos, vis_faces, os.path.join(out_dir, "mesh.png"), version, cid)
-    _geo_dist_figure(vis_pos, vis_faces, static["geo_dist"].numpy()[orig_idx],
-                     static["global_geo_dist"].numpy()[orig_idx],
-                     os.path.join(out_dir, "geo_dist.png"), version, cid)
-    _cot_eigvec_figure(vis_pos, vis_faces, static["cot_eigvec"].numpy()[orig_idx],
-                       static["cot_eigval"].numpy(), cot_path, version, cid)
-    print(f"[ok] mesh/geo_dist/cot_eigvec pngs -> {out_dir}")
-
 def detect_polluted_cases(save_dir, threshold=3.5, render=False):
     """Flag cases whose t=0 max |WSS| is an outlier (modified-z via median/MAD).
 
@@ -441,6 +347,7 @@ def detect_polluted_cases(save_dir, threshold=3.5, render=False):
     for v, cid, mag, zi in flagged:
         print(f"  [outlier] {v}/{cid}: max|WSS|={mag:.3f}, z={zi:+.2f}")
         if render:
+            from angioflow.visualize.data_sanity import wss_sanity_video
             wss_sanity_video(save_dir, v, cid, n_frames=80)
     print(f"[detect] {len(flagged)}/{len(cases)} flagged (|z|>{threshold})")
 
