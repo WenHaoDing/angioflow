@@ -56,6 +56,7 @@ import io
 import json
 import os
 import re
+import shutil
 import subprocess
 import time
 import zipfile
@@ -70,6 +71,8 @@ from scipy.spatial import cKDTree
 from angioflow.data.dataset_tags import DATASET_TAGS
 
 DATASET_PREFIX = {"aneug_flow": "transient_data", "angioflow": "cfd_data", "aneugv2": "cfd_data"}
+SOURCE_REPO = {"aneug_flow": "whding123/AneuG-Flow", "angioflow": "whding123/AngioFlow",
+               "aneugv2": "whding123/AneuGv2"}                # for --blood_read download
 OUT_REPO = "whding123/AngioFlow-PyG"
 OUT_PREFIX = "interior"
 OUT_PREFIX_LEAN = "interior_lean"
@@ -217,43 +220,86 @@ def load_blood(path):
         return torch.load(path, weights_only=False)
 
 
+def fetch_blood(tag, cid, case_dir, args):
+    """-> (path to torch.load, path to delete afterwards or None).
+    mount:    memory-map straight through the mount. Gathering ~80k scattered pool
+              points then turns into many small remote page reads -- slow on a network
+              mount (~5-6 min/case observed on HF vs ~40 s locally).
+    copy:     one sequential copy of the file to scratch first, then mmap it locally.
+    download: hf_hub_download from the source repo to scratch (parallel chunk fetch)."""
+    src = os.path.join(case_dir, BLOOD_NAME)
+    if args.blood_read == "mount":
+        return src, None
+    tmp_dir = os.path.join(args.scratch, "_blood")
+    os.makedirs(tmp_dir, exist_ok=True)
+    if args.blood_read == "copy":
+        dst = os.path.join(tmp_dir, f"{cid}_{BLOOD_NAME}")
+        with open(src, "rb") as f, open(dst, "wb") as g:
+            shutil.copyfileobj(f, g, 64 << 20)
+        return dst, dst
+    path = with_retry(lambda: hf_hub_download(SOURCE_REPO[tag], f"{DATASET_PREFIX[tag]}/{cid}/{BLOOD_NAME}",
+                                              repo_type=REPO_TYPE, token=args.token, local_dir=tmp_dir),
+                      f"download {cid}/{BLOOD_NAME}")
+    return path, path
+
+
 def build_case(tag, cid, case_dir, args):
     """One case's zip entries [(name, bytes)] + manifest record. Everything is built in
-    memory first (~0.4 GB), so a case that fails part-way (e.g. a missing gradient key)
-    leaves nothing in the part."""
+    memory first (~0.1-0.4 GB), so a case that fails part-way (e.g. a missing gradient
+    key) leaves nothing in the part. record["timing_s"] has seconds per stage."""
+    timing, t = {}, time.perf_counter()
+
+    def lap(name):
+        nonlocal t
+        now = time.perf_counter()
+        timing[name] = round(now - t, 1)
+        t = now
+
     reg_path = os.path.join(case_dir, REG_NAME)
     wall_pos = torch.load(reg_path, weights_only=False)["pos"].numpy().astype(np.float64)
-    blood = load_blood(os.path.join(case_dir, BLOOD_NAME))
-    T = blood[VEL_KEYS[0]].shape[0]
-    if T < args.n_frames:
-        raise ValueError(f"{BLOOD_NAME} has {T} frames < n_frames={args.n_frames}")
+    blood_path, cleanup = fetch_blood(tag, cid, case_dir, args)
+    lap("fetch")
+    try:
+        blood = load_blood(blood_path)
+        T = blood[VEL_KEYS[0]].shape[0]
+        if T < args.n_frames:
+            raise ValueError(f"{BLOOD_NAME} has {T} frames < n_frames={args.n_frames}")
+        int_pos = interior_pos(blood)
+        lap("load")
 
-    int_pos = interior_pos(blood)
-    wall_dist = cKDTree(wall_pos).query(int_pos)[0]
-    rng = np.random.default_rng(args.seed)
-    pool = sample_pool(int_pos, wall_dist, rng, args.pool_ratio, args.near_decay,
-                       args.far_floor, args.min_wall_dist)
-    pool_t = torch.from_numpy(pool)
-    center = wall_pos.mean(0, keepdims=True)
+        wall_dist = cKDTree(wall_pos).query(int_pos)[0]
+        rng = np.random.default_rng(args.seed)
+        pool = sample_pool(int_pos, wall_dist, rng, args.pool_ratio, args.near_decay,
+                           args.far_floor, args.min_wall_dist)
+        pool_t = torch.from_numpy(pool)
+        center = wall_pos.mean(0, keepdims=True)
+        lap("sample")
+
+        n = args.n_frames
+        vel = torch.cat([blood[k][:n, pool_t] for k in VEL_KEYS], dim=-1)       # [T, P, 3]
+        press = blood[PRESS_KEY][:n, pool_t]                                    # [T, P, 1]
+        if args.lean:                     # gradient keys are never read
+            frames = [{"vel": vel[t_].clone(), "press": press[t_].clone()} for t_ in range(n)]
+        else:
+            grad_v = torch.cat([blood[k][:n, pool_t] for k in VGRAD_KEYS], dim=-1)  # [T, P, 9]
+            grad_p = torch.cat([blood[k][:n, pool_t] for k in PGRAD_KEYS], dim=-1)  # [T, P, 3]
+            frames = [{"vel": vel[t_].clone(), "press": press[t_].clone(),
+                       "grad_v": grad_v[t_].clone(), "grad_p": grad_p[t_].clone()} for t_ in range(n)]
+        del blood
+        lap("slice")
+    finally:
+        if cleanup and os.path.exists(cleanup):
+            os.remove(cleanup)
 
     entries = [(f"{ZIP_DIR}/interior_static_{tag}_{cid}.pt", _torch_bytes({
         "pos":       torch.from_numpy(int_pos[pool] - center).float(),   # [P, 3]
         "wall_dist": torch.from_numpy(wall_dist[pool]).float(),          # [P]
     }))]
-    n = args.n_frames
-    vel = torch.cat([blood[k][:n, pool_t] for k in VEL_KEYS], dim=-1)       # [T, P, 3]
-    press = blood[PRESS_KEY][:n, pool_t]                                    # [T, P, 1]
-    if args.lean:                     # gradient keys are never read
-        frames = [{"vel": vel[t].clone(), "press": press[t].clone()} for t in range(n)]
-    else:
-        grad_v = torch.cat([blood[k][:n, pool_t] for k in VGRAD_KEYS], dim=-1)  # [T, P, 9]
-        grad_p = torch.cat([blood[k][:n, pool_t] for k in PGRAD_KEYS], dim=-1)  # [T, P, 3]
-        frames = [{"vel": vel[t].clone(), "press": press[t].clone(),
-                   "grad_v": grad_v[t].clone(), "grad_p": grad_p[t].clone()} for t in range(n)]
-    entries += [(f"{ZIP_DIR}/interior_{tag}_{cid}_{t}.pt", _torch_bytes(f)) for t, f in enumerate(frames)]
+    entries += [(f"{ZIP_DIR}/interior_{tag}_{cid}_{t_}.pt", _torch_bytes(f)) for t_, f in enumerate(frames)]
+    lap("serialize")
     return entries, dict(n_pool=int(len(pool)), n_interior=int(len(int_pos)), n_frames=n,
-                registration_sha256=sha256_file(reg_path),
-                vel_max_t0=float(vel[0].norm(dim=1).max()))
+                         registration_sha256=sha256_file(reg_path),
+                         vel_max_t0=float(vel[0].norm(dim=1).max()), timing_s=timing)
 
 
 def discover_cases(case_root):
@@ -358,7 +404,7 @@ def extract(args, api):
                 del entries
                 records[cid] = record
                 print(f"[ok] {tag}/{cid} pool {record['n_pool']}/{record['n_interior']} "
-                      f"({time.time() - t0:.1f}s)", flush=True)
+                      f"({time.time() - t0:.1f}s: {record['timing_s']})", flush=True)
         part_meta = dict(dataset=tag, part=stem, cases=sorted(records), records=records,
                          **{k: getattr(args, k) for k in CONFIG_KEYS}, git_commit=git_commit())
         json_path = os.path.join(args.scratch, stem + ".json")
@@ -423,6 +469,9 @@ def parse_args():
     p.add_argument("--part_size", type=int, default=None,
                    help=f"cases per part; default {PART_SIZE_LEAN} with --lean, else {PART_SIZE}")
     p.add_argument("--lean", action="store_true", help="store only vel + press (no gradients)")
+    p.add_argument("--blood_read", choices=["copy", "download", "mount"], default="copy",
+                   help="how blood_data.pt is read: copy to scratch first (default), hf_hub_download "
+                        "from the source repo, or mmap straight through the mount (slow)")
     p.add_argument("--num_jobs", type=int, default=1, help="split the dataset over this many parallel Jobs")
     p.add_argument("--job_index", type=int, default=0, help="which split this Job runs (0..num_jobs-1)")
     p.add_argument("--max_cases", type=int, default=None, help="smoke test: only the first N assigned cases")
