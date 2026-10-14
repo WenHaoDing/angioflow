@@ -44,6 +44,8 @@ class AngioFlowWallDatasetT0(AngioFlowWallDataset):
 
     @property
     def processed_file_names(self):
-        statics = [f"static_{v}_{cid}.pt" for (v, cid) in self.case_keys]
-        wss = [f"wss_{v}_{cid}_{t}.pt" for (v, cid) in self.case_keys for t in self._frames]
+        def _rel(version, name):
+            return f"{version}/{name}" if self.per_version_dirs else name
+        statics = [_rel(v, f"static_{v}_{cid}.pt") for (v, cid) in self.case_keys]
+        wss = [_rel(v, f"wss_{v}_{cid}_{t}.pt") for (v, cid) in self.case_keys for t in self._frames]
         return statics + wss

@@ -70,6 +70,15 @@ class WaveformEmbedder(nn.Module):
 class CotPE(nn.Module):
     """Per-node positional encoding from cotangent-Laplacian eigenpairs.
 
+    Each mode is a token (eigvec value, eigval). The two features are normalized
+    separately: BatchNorm over nodes for the eigenvectors, and a fixed log1p for the
+    eigenvalue, which the loader provides dimensionless (λ·A/4π ≈ mode index, see
+    AngioFlowWallDataset._load_static). They used to share one BatchNorm over the
+    stacked [N, k, 2] tensor -- per mode, eigenvector values and eigenvalue pooled into
+    the same statistics -- which erases the eigenvector signal once eigenvalues are
+    large (physical λ ~ 1e4-1e6 m^-2). The eigenvalue tells the encoder which
+    frequency a token is, since tokens are summed at the end.
+
     Args:
         use_mlp: if True, replace the Transformer encoder with a shared MLP applied
                  independently per eigenmode (faster, no cross-mode attention).
@@ -78,7 +87,7 @@ class CotPE(nn.Module):
     def __init__(self, n_cot, dim_pe=32, n_heads=4, n_layers=4, use_mlp=False):
         super().__init__()
         self.use_mlp = use_mlp
-        self.bn = nn.BatchNorm1d(n_cot)
+        self.bn = nn.BatchNorm1d(n_cot)                         # eigenvectors only, per mode
         self.proj = nn.Linear(2, dim_pe)                        # (eigvec, eigval) -> dim_pe
         if use_mlp:
             layers = []
@@ -91,11 +100,13 @@ class CotPE(nn.Module):
                                                dim_feedforward=dim_pe * 4, batch_first=True)
             self.encoder = nn.TransformerEncoder(layer, num_layers=n_layers)
 
-    def forward(self, eigvec, eigval, training):               # eigvec/eigval [N, k]
+    def forward(self, eigvec, eigval, training):               # eigvec/eigval [N, k]; eigval dimensionless
         if training:                                            # random sign flip per mode
             sign = torch.randint(0, 2, (1, eigvec.size(1)), device=eigvec.device) * 2 - 1
             eigvec = eigvec * sign
-        lap = self.bn(torch.stack([eigvec, eigval], dim=-1))    # [N, k, 2]
+        eigvec = self.bn(eigvec)                                # per-mode stats over nodes
+        eigval = torch.log1p(eigval.clamp_min(0))               # mode 0 -> 0, mode 7 -> ~2.1
+        lap = torch.stack([eigvec, eigval], dim=-1)             # [N, k, 2]
         x = self.proj(lap)                                      # [N, k, dim_pe]
         if self.use_mlp:
             N, k, d = x.shape

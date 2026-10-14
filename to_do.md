@@ -14,8 +14,10 @@ won't match training.
   `cot_mass_eigs` from `data/precompute_wall_static.py`: generalized `L v = λ M v`
   (cot stiffness, lumped mass), unit-L2 modes, largest-|entry|-positive sign,
   fixed ARPACK `v0`. Import it rather than copying, so there is one implementation.
-- **Eigenvalue scale:** new `cot_eigval` is in 1/m² (~1e4), old was ~1e-4. Check
-  every use of `cot_eigval` as a feature (e.g. `models/transformer.py` `cot_pe`).
+- **Eigenvalue scale:** stored `cot_eigval` is physical (1/m², ~1e4-1e6). Training
+  converts it to dimensionless λ·A/(4π) in `AngioFlowWallDataset._load_static`
+  (A = surface area from pos + faces), and `CotPE` feeds `log1p` of that. Deploy must
+  apply the same conversion before the model.
 - **Orphan vertices** (in `pos`, in no face): compute normals / geo_dist /
   eigenvectors on the face-referenced surface, kNN-fill (k=3, inverse distance)
   at orphans, add the kNN edges -- same as `precompute_wall_static.process_case`.

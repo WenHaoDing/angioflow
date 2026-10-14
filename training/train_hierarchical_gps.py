@@ -131,6 +131,7 @@ def main(args):
         decimate_method=args.decimate_method,
         lap_k=args.lap_k,
         exclude_keys=exclude_keys,
+        extracted=args.extracted,
     )
     if args.frames == "all":
         # note: the full dataset has no `versions` filter — all versions are used
@@ -288,6 +289,9 @@ if __name__ == "__main__":
     p.add_argument("--case_root_angioflow",  default="/media/yaplab2/wd8tb/wenhao/datasets/angioflowv2_merged")
     p.add_argument("--case_root_aneug_flow",  default="/media/yaplab2/wd8tb/wenhao/datasets/angioflowv1/transient_data")
     p.add_argument("--save_dir",      default="/media/yaplab2/wd8tb/wenhao/datasets/angioflow_pyg_v2")
+    p.add_argument("--extracted", action="store_true",
+                   help="--save_dir is a downloaded AngioFlow-PyG root: find cases from its files "
+                        "(all datasets incl. aneugv2), per-dataset layout, never process")
     p.add_argument("--n_frames",      type=int,   default=80)
     p.add_argument("--decimate_ratio", type=float, default=0.5)
     p.add_argument("--decimate_method", choices=["quadric", "fps"], default="quadric")

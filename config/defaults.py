@@ -11,6 +11,9 @@ def add_data_args(parser):
     g.add_argument("--case_root_angioflow", default="/media/yaplab2/wd8tb/wenhao/datasets/angioflowv2_merged")
     g.add_argument("--case_root_aneug_flow", default="/media/yaplab2/wd8tb/wenhao/datasets/angioflowv1/transient_data")
     g.add_argument("--save_dir",     default="/media/yaplab2/wd8tb/wenhao/datasets/angioflow_pyg_v2")
+    g.add_argument("--extracted", action="store_true",
+                   help="--save_dir is a downloaded AngioFlow-PyG root: find cases from its files "
+                        "(all datasets incl. aneugv2), per-dataset layout, never process")
     g.add_argument("--n_frames",     type=int,   default=80)
     g.add_argument("--decimate_ratio", type=float, default=0.5)
     g.add_argument("--decimate_method", choices=["quadric", "fps"], default="quadric")

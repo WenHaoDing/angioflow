@@ -138,3 +138,53 @@ def save_wss_sanity(model, loader, waveform, device, stats, out_dir, epoch,
     for i in range(len(samples)):
         out_path = os.path.join(out_dir, f"sanity_epoch_{epoch:04d}_s{i}.png")
         print(f"[sanity] saved {out_path}", flush=True)
+
+
+def save_loss_curves(history_path: str, out_path: str):
+    """Plot the per-epoch history.csv written by angioflow.training.train: train vs
+    test loss terms, denormalized test MSE, total test loss (best epoch marked),
+    learning rate, and gradient norm / clipped fraction."""
+    import csv
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    with open(history_path) as f:
+        rows = list(csv.DictReader(f))
+    if not rows:
+        return
+    col = lambda k: np.array([float(r[k]) for r in rows])
+    ep = col("epoch")
+    fig, axes = plt.subplots(2, 3, figsize=(17, 8))
+
+    for ax, key, title in [(axes[0, 0], "logmag", "log-magnitude loss"),
+                           (axes[0, 1], "huber", "pointwise loss (normalized)")]:
+        ax.plot(ep, col(f"train_{key}"), label="train")
+        ax.plot(ep, col(f"test_{key}"), label="test")
+        ax.set_yscale("log"); ax.set_title(title); ax.legend()
+    axes[0, 2].plot(ep, col("test_mse_denorm"), color="tab:green")
+    axes[0, 2].set_yscale("log"); axes[0, 2].set_title("test MSE (Pa/s)²")
+
+    test_loss = col("test_loss")
+    best = int(np.argmin(test_loss))
+    axes[1, 0].plot(ep, test_loss, color="tab:orange")
+    axes[1, 0].scatter([ep[best]], [test_loss[best]], color="red", zorder=3,
+                       label=f"best {test_loss[best]:.4g} @ epoch {int(ep[best])}")
+    axes[1, 0].set_yscale("log"); axes[1, 0].set_title("test loss (scheduler / best.pth)")
+    axes[1, 0].legend()
+    axes[1, 1].plot(ep, col("lr"), color="tab:purple")
+    axes[1, 1].set_yscale("log"); axes[1, 1].set_title("learning rate")
+    axes[1, 2].plot(ep, col("grad_norm_mean"), label="mean")
+    axes[1, 2].plot(ep, col("grad_norm_max"), label="max", alpha=0.6)
+    axes[1, 2].set_title("gradient norm"); axes[1, 2].legend(loc="upper left")
+    twin = axes[1, 2].twinx()
+    twin.plot(ep, 100 * col("grad_clip_frac"), color="grey", ls="--")
+    twin.set_ylabel("clipped steps (%)", color="grey")
+    for ax in axes.ravel():
+        ax.set_xlabel("epoch"); ax.grid(alpha=0.3)
+    fig.suptitle(f"{os.path.basename(os.path.dirname(os.path.dirname(out_path)))}: "
+                 f"{len(rows)} epoch(s)", fontsize=11)
+    fig.tight_layout()
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    fig.savefig(out_path, dpi=100)
+    plt.close(fig)

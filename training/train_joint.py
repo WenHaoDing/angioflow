@@ -154,7 +154,7 @@ def build_dataset(args, exclude_keys):
         lap_k=args.lap_k, exclude_keys=exclude_keys,
         interior_dir=args.interior_dir, pool_ratio=args.data_pool_ratio,
         sample_ratio=args.interior_sample_ratio, sanity_first=0,
-        freeze_dataset=args.freeze_dataset,
+        freeze_dataset=args.freeze_dataset, extracted=args.extracted,
         load_edge_index=False, load_grad=False,        # no physics, no interior graph
     )
     versions = args.versions.split(",") if args.versions else None

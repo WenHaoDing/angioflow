@@ -14,7 +14,7 @@ from angioflow.data.graph import compute_pe_cot_eigenvector
 from angioflow.data.per_opening_geo import per_opening_geo_dist
 from angioflow.data.mesh import (face_to_edge_index, decimate_zone_mesh,
                                   decimate_fps_ballpivot, compute_vertex_normals)
-from angioflow.data.dataset_tags import normalize_tag, split_tag_cid
+from angioflow.data.dataset_tags import DATASET_TAGS, normalize_tag, split_tag_cid
 
 PHYSICS_KEYS = ["x_wall_shear", "y_wall_shear", "z_wall_shear"]
 
@@ -30,9 +30,16 @@ class AngioFlowWallDataset(Dataset):
                  case_pattern={"aneug_flow": "stable_*", "angioflow": "*"},
                  transform=None, pre_transform=None, redo=False, exclude_keys=None,
                  freeze_dataset=False, per_version_dirs=False, max_cases_per_version=None,
-                 sanity_n_normal=5, sanity_z=3.5):
+                 sanity_n_normal=5, sanity_z=3.5, extracted=False):
         assert save_dir is not None, "save_dir is required"
         assert decimate_method in ("quadric", "fps"), "decimate_method must be 'quadric' or 'fps'"
+        # extracted: save_dir is a downloaded AngioFlow-PyG root (<tag>/static_<tag>_*.pt, ...).
+        # Cases are found from its files for every dataset tag -- not from source case
+        # folders, so no local source data is needed (e.g. aneugv2) -- and are never
+        # processed, so nothing produced locally can be mixed into that root.
+        self.extracted = extracted
+        if extracted:
+            per_version_dirs = freeze_dataset = True
         self.case_roots = {"aneug_flow": case_root_aneug_flow, "angioflow": case_root_angioflow}
         self.case_pattern = case_pattern
         self.save_dir = save_dir
@@ -58,16 +65,24 @@ class AngioFlowWallDataset(Dataset):
 
         # case_dir_by_key[(version, cid)] = case_dir.  cid = folder basename (str).
         self.case_dir_by_key = {}
-        for version, root in self.case_roots.items():
-            if root is None:
-                continue
-            for d in sorted(glob.glob(os.path.join(root, self.case_pattern[version]))):
-                if not os.path.isdir(d):
+        if extracted:       # no source folder per case -> case_dir is None
+            for version in DATASET_TAGS:
+                prefix = f"static_{version}_"
+                for path in sorted(glob.glob(os.path.join(save_dir, version, f"{prefix}*.pt"))):
+                    key = (version, os.path.basename(path)[len(prefix):-len(".pt")])
+                    if key not in self.exclude_keys:
+                        self.case_dir_by_key[key] = None
+        else:
+            for version, root in self.case_roots.items():
+                if root is None:
                     continue
-                key = (version, self._parse_case_id(d))
-                if key in self.exclude_keys:
-                    continue
-                self.case_dir_by_key[key] = d
+                for d in sorted(glob.glob(os.path.join(root, self.case_pattern[version]))):
+                    if not os.path.isdir(d):
+                        continue
+                    key = (version, self._parse_case_id(d))
+                    if key in self.exclude_keys:
+                        continue
+                    self.case_dir_by_key[key] = d
         if self.exclude_keys:
             print(f"[exclude] dropping {len(self.exclude_keys)} cases via exclude_keys")
         if max_cases_per_version is not None:
@@ -95,7 +110,8 @@ class AngioFlowWallDataset(Dataset):
             for version in self.case_roots:
                 os.makedirs(os.path.join(save_dir, version), exist_ok=True)
         self._index = [(v, cid, t) for (v, cid) in self.case_keys for t in range(n_frames)]
-        super().__init__(root=case_root_angioflow or case_root_aneug_flow,
+        # PyG creates <root>/raw; keep that inside save_dir when there are no sources
+        super().__init__(root=save_dir if extracted else (case_root_angioflow or case_root_aneug_flow),
                          transform=transform, pre_transform=pre_transform)
         self._rebuild_successful_index()
         # rank 0 only: DDP ranks each build the dataset and would race on the same files
@@ -286,6 +302,15 @@ class AngioFlowWallDataset(Dataset):
         if k > self.lap_k:
             s["cot_eigvec"] = s["cot_eigvec"][:, :self.lap_k].clone()
             s["cot_eigval"] = s["cot_eigval"][:self.lap_k].clone()
+        # Precomputed statics (marked by orphan_mask) store physical eigenvalues of
+        # L v = λ M v in m^-2, which scale with units and vessel size. Make them
+        # dimensionless: λ·A/(4π) ≈ mode index (Weyl's law), A = surface area. Older
+        # statics already hold a dimensionless (row-normalized) quantity -- left as is.
+        # deploy/mesh_to_graph.py must apply the same conversion (to_do.md).
+        if "orphan_mask" in s:
+            p, f = s["pos"].double(), s["faces"]
+            area = 0.5 * torch.linalg.cross(p[f[:, 1]] - p[f[:, 0]], p[f[:, 2]] - p[f[:, 0]]).norm(dim=1).sum()
+            s["cot_eigval"] = (s["cot_eigval"].double() * area / (4 * np.pi)).float()
         return s
 
     def len(self):

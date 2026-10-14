@@ -9,11 +9,13 @@ no changes needed here.
 from __future__ import annotations
 
 import argparse
+import csv
 import glob
 import json
 import os
 import random
 import shutil
+import time
 os.environ.setdefault(
     "WANDB_API_KEY",
     "delete",
@@ -36,7 +38,7 @@ from angioflow.data.datasets_t0 import AngioFlowWallDatasetT0
 from angioflow.data.normalize import load_or_compute_stats
 from angioflow.losses import log_mag_loss, tv_smooth_loss, directional_loss
 from angioflow.transform import AneurysmCrop, CenterAndRandomRotate, PosYNormalize, SymmetrizeEdges
-from angioflow.visualize.sanity import save_wss_sanity
+from angioflow.visualize.sanity import save_loss_curves, save_wss_sanity
 
 
 def _chain(*transforms):
@@ -105,10 +107,12 @@ def _slice_for_query(batch, query_idx):
 
 @torch.no_grad()
 def evaluate(model, loader, waveform, device, y_mean, y_std, log_eps, max_wss, huber_delta,
-             pointwise_kind="huber"):
+             pointwise_kind="huber", max_batches=None):
     model.eval()
     tot_logmag, tot_huber, tot_mse, n = 0.0, 0.0, 0.0, 0
-    for batch in loader:
+    for i, batch in enumerate(loader):
+        if max_batches is not None and i >= max_batches:
+            break
         batch = batch.to(device)
         pred, query_idx = _unpack_pred(model(batch, waveform))
         y, _, _ = _slice_for_query(batch, query_idx)
@@ -186,6 +190,29 @@ def save_script_copy(ckpt_dir):
     shutil.copy(__file__, dst)
 
 
+HISTORY_FIELDS = ["epoch", "train_logmag", "train_huber", "train_smooth", "train_dir",
+                  "test_logmag", "test_huber", "test_mse_denorm", "test_loss", "lr",
+                  "grad_norm_mean", "grad_norm_max", "grad_clip_frac", "epoch_time_s"]
+
+
+def init_history(path, epoch_start):
+    """<ckpt_dir>/history.csv, one row per epoch. On resume, keep only rows before
+    epoch_start so a restarted run never carries duplicate or stale epochs."""
+    rows = []
+    if epoch_start > 0 and os.path.exists(path):
+        with open(path) as f:
+            rows = [r for r in csv.DictReader(f) if int(r["epoch"]) < epoch_start]
+    with open(path, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=HISTORY_FIELDS)
+        w.writeheader()
+        w.writerows(rows)
+
+
+def append_history(path, row):
+    with open(path, "a", newline="") as f:
+        csv.DictWriter(f, fieldnames=HISTORY_FIELDS).writerow(row)
+
+
 def maybe_resume(ckpt_dir, model, optim, sched):
     """Try last.pth first; fall back to the latest epoch_XXXX.pth if missing."""
     candidates = [os.path.join(ckpt_dir, "last.pth")]
@@ -222,6 +249,15 @@ def get_args():
     add_schedule_args(p)
     add_misc_args(p)
     get_model_config(known.model).add_args(p)
+    p.add_argument("--sanity_every", type=int, default=50,
+                   help="render WSS sanity snapshots every N epochs (epoch 0 included)")
+    p.add_argument("--ckpt_every", type=int, default=100,
+                   help="save an extra epoch_XXXX.pth every N epochs (last.pth / best.pth are "
+                        "written every epoch / on improvement regardless)")
+    p.add_argument("--max_steps", type=int, default=None,
+                   help="smoke test: stop after this many training steps (and evaluate on as many "
+                        "test batches), print per-step loss/time/GPU memory, render one sanity "
+                        "snapshot, save no checkpoints")
     return p.parse_args()
 
 
@@ -244,6 +280,7 @@ def main(args):
         decimate_method=args.decimate_method,
         lap_k=args.lap_k,
         exclude_keys=exclude_keys,
+        extracted=args.extracted,
     )
     if args.frames == "all":
         # note: the full dataset has no `versions` filter — all versions are used
@@ -301,6 +338,8 @@ def main(args):
     epoch_start, best_loss = 0, float("inf")
     if args.resume:
         epoch_start, best_loss = maybe_resume(ckpt_dir, model, optim, sched)
+    history_path = os.path.join(ckpt_dir, "history.csv")
+    init_history(history_path, epoch_start)
 
     if args.wandb:
         import wandb
@@ -309,6 +348,7 @@ def main(args):
                    resume="allow", id=args.wandb_run_id)
 
     for epoch in range(epoch_start, args.total_epochs):
+        t_epoch = time.perf_counter()
         model.train()
         warming_up = apply_lr_warmup(optim, args, epoch)
         if hasattr(model, "redraw_projection"):
@@ -316,6 +356,7 @@ def main(args):
         tot_logmag, tot_huber, tot_smooth, tot_dir, n = 0.0, 0.0, 0.0, 0.0, 0
         gnorm_sum, gnorm_max, n_clipped, n_steps = 0.0, 0.0, 0, 0
         for batch in train_loader:
+            t_step = time.perf_counter()
             batch = batch.to(device)
             if torch.isnan(batch.pos).any() or torch.isnan(batch.y).any():
                 print("[warn] NaN in input/target — skipping batch")
@@ -341,11 +382,18 @@ def main(args):
             n_clipped += gnorm.item() > args.grad_clip_norm
             n_steps += 1
             optim.step()
+            if args.max_steps:
+                torch.cuda.synchronize(device)
+                print(f"[step {n_steps:3d}] loss {loss.item():.4g}  {time.perf_counter() - t_step:.2f}s  "
+                      f"nodes {batch.num_nodes}  peak GPU {torch.cuda.max_memory_allocated(device) / 1e9:.1f} GB",
+                      flush=True)
             tot_logmag += loss_logmag.item() * batch.num_graphs
             tot_huber  += loss_huber.item()  * batch.num_graphs
             tot_smooth += loss_smooth.item() * batch.num_graphs
             tot_dir    += loss_dir.item()    * batch.num_graphs
             n += batch.num_graphs
+            if args.max_steps and n_steps >= args.max_steps:
+                break
         train_logmag = tot_logmag / max(n, 1)
         train_huber  = tot_huber  / max(n, 1)
         train_smooth = tot_smooth / max(n, 1)
@@ -356,7 +404,7 @@ def main(args):
         test_logmag, test_huber, test_mse_denorm = evaluate(
             model, test_loader, waveform, device,
             y_mean, y_std, args.log_eps, args.max_wss, huber_delta,
-            pointwise_kind=args.pointwise_loss)
+            pointwise_kind=args.pointwise_loss, max_batches=args.max_steps)
         # weighted the same as the training loss's logmag/huber terms, so the scheduler
         # and best-checkpoint selection track what training actually optimizes, not an
         # arbitrary 1:1 sum (huber is weighted 50x higher than logmag by default)
@@ -371,6 +419,20 @@ def main(args):
               f"test_mse_denorm {test_mse_denorm:.4g} (Pa/s)²  lr {lr_now:.2e}  "
               f"gnorm {gnorm_mean:.3g} (max {gnorm_max:.3g}, clipped {clip_frac:.0%})",
               flush=True)
+        append_history(history_path, dict(
+            epoch=epoch, train_logmag=train_logmag, train_huber=train_huber, train_smooth=train_smooth,
+            train_dir=train_dir, test_logmag=test_logmag, test_huber=test_huber,
+            test_mse_denorm=test_mse_denorm, test_loss=test_loss, lr=lr_now,
+            grad_norm_mean=gnorm_mean, grad_norm_max=gnorm_max, grad_clip_frac=clip_frac,
+            epoch_time_s=round(time.perf_counter() - t_epoch, 1)))
+        save_loss_curves(history_path, os.path.join(ckpt_dir, "sanity", "loss_curves.png"))
+        if args.max_steps:      # also exercise the sanity renderer, but save no checkpoints
+            sanity_dir = os.path.join(ckpt_dir, "sanity")
+            save_wss_sanity(model, test_loader, waveform, device, stats, sanity_dir, epoch,
+                            max_wss=args.max_wss)
+            print(f"[smoke] {n_steps} step(s) + {args.max_steps} test batch(es) done; "
+                  f"sanity -> {sanity_dir}; no checkpoints saved")
+            return
 
         if args.wandb:
             wandb.log({"train_logmag": train_logmag, "train_huber": train_huber,
@@ -380,13 +442,13 @@ def main(args):
                        "grad_norm_mean": gnorm_mean, "grad_norm_max": gnorm_max,
                        "grad_clip_frac": clip_frac}, step=epoch)
 
-        if epoch % 50 == 0:
+        if epoch % args.sanity_every == 0:
             sanity_dir = os.path.join(ckpt_dir, "sanity")
             save_wss_sanity(model, test_loader, waveform, device, stats, sanity_dir, epoch,
                             max_wss=args.max_wss)
 
         save_ckpt(ckpt_last, model, optim, sched, epoch, best_loss, args)
-        if epoch % 100 == 0:
+        if epoch % args.ckpt_every == 0:
             save_ckpt(os.path.join(ckpt_dir, f"epoch_{epoch:04d}.pth"),
                       model, optim, sched, epoch, best_loss, args)
         if test_loss < best_loss:
@@ -405,194 +467,19 @@ if __name__ == "__main__":
 """
 conda activate new
 
-python -m angioflow.training.train --model pointnet2 \
-  --run_name pointnet2_t0_v1v2 --versions aneug_flow,angioflow \
-  --pointwise_loss huber --lambda_huber 5.0 --lambda_smooth 0.1 --lambda_logmag 0.1 --lambda_dir 0.1 \
-  --total_epochs 500 --wandb
-
 python -m angioflow.training.train --model hierarchical_gps \
-  --run_name hier_gps_p1_0frame_v1only --versions aneug_flow \
-  --n_pre 2 --n_gps 4 --n_post 4 --n_pool 1 --pool_ratio 0.25 \
-  --pointwise_loss huber --lambda_huber 5.0 --lambda_smooth 0.1 --lambda_logmag 0.1 --lambda_dir 0.1 \
-  --total_epochs 500 --wandb
-
-  python -m angioflow.training.train --model hierarchical_gps \
-  --run_name hier_gps_p1_0frame_v1only_dropsmooth --versions aneug_flow \
-  --n_pre 2 --n_gps 4 --n_post 4 --n_pool 1 --pool_ratio 0.25 \
+  --extracted --save_dir /media/yaplab2/wd8tb/wenhao/datasets/AngioFlow-PyG \
+  --ckpt_root /media/yaplab2/wd8tb/wenhao/datasets/AngioFlow-PyG_checkpoints \
+  --run_name hier_gps_p1_e128_npre2_gps8_npost4_knn8_inter2_pr015_aneugflow_angioflow \
+  --versions aneug_flow,angioflow --frames 0 --train_frac 0.9 --decimate_ratio 1.0 \
+  --attn_type performer --dim_emb 128 --dim_pe 16 --dim_te 8 --dim_wfe 8 \
+  --n_pre 2 --n_gps 8 --n_post 4 --n_pool 1 --pool_ratio 0.15 --pool_knn_k 8 --n_inter 2 --n_heads 4 \
+  --pe_use_mlp --pe_n_heads 2 --pe_n_layers 2 \
   --pointwise_loss huber --lambda_huber 5.0 --lambda_smooth 0.0 --lambda_logmag 0.1 --lambda_dir 0.1 \
-  --total_epochs 500 --wandb
-
-
-python -m angioflow.training.train --model hierarchical_gps \
-  --save_dir /media/yaplab2/wd8tb/wenhao/datasets/angioflow_pyg_full \
-  --run_name hier_gps_p2_fullg_0frame_v1only \
-  --versions aneug_flow \
-  --decimate_ratio 1.0 \
-  --n_pre 2 --n_gps 4 --n_post 4 \
-  --n_pool 2 --pool_ratio 0.25 --pool_knn_k 8 --n_inter 1 \
-  --pointwise_loss huber --lambda_huber 5.0 --lambda_smooth 0.1 --lambda_logmag 0.1 --lambda_dir 0.1 \
-  --grad_ckpt \
-  --total_epochs 500 --wandb
-
-python -m angioflow.training.train --model hierarchical_gps \
-  --save_dir /media/yaplab2/wd8tb/wenhao/datasets/angioflow_pyg_full \
-  --run_name hier_gps_p2_fullg_0frame_v1only_mse \
-  --versions aneug_flow \
-  --decimate_ratio 1.0 \
-  --n_pre 2 --n_gps 4 --n_post 4 \
-  --n_pool 2 --pool_ratio 0.25 --pool_knn_k 8 --n_inter 1 \
-  --pointwise_loss mse --lambda_huber 1.0 --lambda_smooth 0.1 --lambda_logmag 0.1 --lambda_dir 0.1 \
-  --grad_ckpt \
-  --total_epochs 500 --wandb
-
-
-  python -m angioflow.training.train --model hierarchical_gps \
-  --save_dir /media/yaplab2/wd8tb/wenhao/datasets/angioflow_pyg_full \
-  --run_name hier_gps_p2_fullg_0frame_v1v2_bi \
-  --versions aneug_flow,angioflow \
-  --decimate_ratio 1.0 \
-  --n_pre 2 --n_gps 4 --n_post 4 \
-  --n_pool 2 --pool_ratio 0.25 --pool_knn_k 8 --n_inter 1 \
-  --pointwise_loss huber --lambda_huber 5.0 --lambda_smooth 0.1 --lambda_logmag 0.1 --lambda_dir 0.1 \
-  --grad_ckpt \
-  --total_epochs 500 --batch_size 8 --device cuda:0 --wandb --wandb_run_id anz2gxxt
-
-  python -m angioflow.training.train --model hierarchical_gps \
-  --save_dir /media/yaplab2/wd8tb/wenhao/datasets/angioflow_pyg_full \
-  --run_name hier_gps_p2_fullg_0frame_v1v2_bi \
-  --versions aneug_flow,angioflow \
-  --decimate_ratio 1.0 \
-  --n_pre 2 --n_gps 4 --n_post 4 \
-  --n_pool 2 --pool_ratio 0.25 --pool_knn_k 8 --n_inter 1 \
-  --pointwise_loss huber --lambda_huber 5.0 --lambda_smooth 0.1 --lambda_logmag 0.1 --lambda_dir 0.1 \
-  --grad_ckpt \
-  --total_epochs 500 --batch_size 8 --device cuda:0 --wandb --wandb_run_id anz2gxxt
-
-#  ablation
-  python -m angioflow.training.train --model hierarchical_gps \
-  --save_dir /media/yaplab2/wd8tb/wenhao/datasets/angioflow_pyg_full \
-  --run_name hier_gps_p1_fullg_0frame_v1v2_e128_npre2_gps8_npost4_knn8_inter2_pr015_nobi \
-  --versions aneug_flow,angioflow \
-  --decimate_ratio 1.0 \
-  --dim_emb 128 \
-  --n_pre 2 --n_gps 8 --n_post 4 \
-  --n_pool 1 --pool_ratio 0.15 --pool_knn_k 8 --n_inter 2 --no_bidirectional \
-  --pointwise_loss huber --lambda_huber 5.0 --lambda_smooth 0.0 --lambda_logmag 0.1 --lambda_dir 0.1 \
-  --grad_ckpt \
-  --total_epochs 500 --batch_size 12 --device cuda:1 --wandb --grad_clip_norm 3.0 --wandb_run_id ztbvr067
-  
-
-python -m angioflow.training.train --model wss_query_field --backbone hgps \
-  --save_dir /media/yaplab2/wd8tb/wenhao/datasets/angioflow_pyg_full \
-  --run_name wss_query_p2_fullg_0frame_v1v2_e64f32_gps4_hop4_tok32_qr2 \
-  --versions aneug_flow,angioflow \
-  --decimate_ratio 1.0 \
-  --dim_emb 64 --dim_field 32 \
-  --n_pre 2 --n_gps 4 --n_pool 2 --pool_ratio 0.25 --pool_knn_k 8 --n_inter 1 \
-  --geometry_token_pool latent --n_geometry_tokens 32 \
-  --n_blocks 2 --xattn_heads 4 --local_hops 4 --local_heads 4 \
-  --query_sample_ratio 0.2 \
-  --grad_ckpt \
-  --pointwise_loss huber --lambda_huber 5.0 --lambda_smooth 0.1 --lambda_logmag 0.1 --lambda_dir 0.1 \
-  --total_epochs 500 --batch_size 16 --device cuda:1 --wandb
-
-# parallel baselines:
-# --- baseline (yours, for reference: peaks ~18GB) ---
-python -m angioflow.training.train --model wss_query_field --backbone hgps \
-  --save_dir /media/yaplab2/wd8tb/wenhao/datasets/angioflow_pyg_full \
-  --run_name wss_query_p2_fullg_0frame_v1v2_e64f32_gps4_hop4_tok32_qr2 \
-  --versions aneug_flow,angioflow --decimate_ratio 1.0 \
-  --dim_emb 64 --dim_field 32 \
-  --n_pre 2 --n_gps 4 --n_pool 2 --pool_ratio 0.25 --pool_knn_k 8 --n_inter 1 \
-  --geometry_token_pool latent --n_geometry_tokens 32 \
-  --n_blocks 2 --xattn_heads 4 --local_hops 4 --local_heads 4 \
-  --query_sample_ratio 0.2 --grad_ckpt \
-  --pointwise_loss huber --lambda_huber 5.0 --lambda_smooth 0.1 --lambda_logmag 0.1 --lambda_dir 0.1 \
-  --total_epochs 500 --batch_size 16 --device cuda:0 --wandb
-
-
-sleep 30000
-python -m angioflow.training.train --model wss_query_field --backbone hgps \
-  --save_dir /media/yaplab2/wd8tb/wenhao/datasets/angioflow_pyg_full \
-  --run_name wss_query_p2_fullg_0frame_v1v2_e64f32_gps4_hop2_tok32_qr2 \
-  --versions aneug_flow,angioflow --decimate_ratio 1.0 \
-  --dim_emb 64 --dim_field 32 \
-  --n_pre 2 --n_gps 4 --n_pool 2 --pool_ratio 0.25 --pool_knn_k 8 --n_inter 1 \
-  --geometry_token_pool latent --n_geometry_tokens 32 \
-  --n_blocks 2 --xattn_heads 4 --local_hops 2 --local_heads 4 \
-  --query_sample_ratio 0.2 --grad_ckpt \
-  --pointwise_loss huber --lambda_huber 5.0 --lambda_smooth 0.1 --lambda_logmag 0.1 --lambda_dir 0.1 \
-  --total_epochs 500 --batch_size 16 --device cuda:0 --wandb
-
-
-# --- Exp 1: GPS depth 4 -> 6 (encoder capacity; cheap, runs on coarse tokens only) ---
-python -m angioflow.training.train --model wss_query_field --backbone hgps \
-  --save_dir /media/yaplab2/wd8tb/wenhao/datasets/angioflow_pyg_full \
-  --run_name wss_query_p2_fullg_0frame_v1v2_e64f32_gps6_hop4_tok32_qr2 \
-  --versions aneug_flow,angioflow --decimate_ratio 1.0 \
-  --dim_emb 64 --dim_field 32 \
-  --n_pre 2 --n_gps 6 --n_pool 2 --pool_ratio 0.25 --pool_knn_k 8 --n_inter 1 \
-  --geometry_token_pool latent --n_geometry_tokens 32 \
-  --n_blocks 2 --xattn_heads 4 --local_hops 4 --local_heads 4 \
-  --query_sample_ratio 0.2 --grad_ckpt \
-  --pointwise_loss huber --lambda_huber 5.0 --lambda_smooth 0.1 --lambda_logmag 0.1 --lambda_dir 0.1 \
-  --total_epochs 500 --batch_size 16 --device cuda:1 --wandb
-
-# --- Exp 2: dim_field 32 -> 16 (is 32 already near the accuracy floor?) ---
-python -m angioflow.training.train --model wss_query_field --backbone hgps \
-  --save_dir /media/yaplab2/wd8tb/wenhao/datasets/angioflow_pyg_full \
-  --run_name wss_query_p2_fullg_0frame_v1v2_e64f16_gps4_hop4_tok32_qr2 \
-  --versions aneug_flow,angioflow --decimate_ratio 1.0 \
-  --dim_emb 64 --dim_field 16 \
-  --n_pre 2 --n_gps 4 --n_pool 2 --pool_ratio 0.25 --pool_knn_k 8 --n_inter 1 \
-  --geometry_token_pool latent --n_geometry_tokens 32 \
-  --n_blocks 2 --xattn_heads 4 --local_hops 4 --local_heads 4 \
-  --query_sample_ratio 0.2 --grad_ckpt \
-  --pointwise_loss huber --lambda_huber 5.0 --lambda_smooth 0.1 --lambda_logmag 0.1 --lambda_dir 0.1 \
-  --total_epochs 500 --batch_size 16 --device cuda:2 --wandb
-
-# --- Exp 3: dim_emb 64 -> 108 (richer global tokens, cheap path -- moderate risk, verify first) ---
-python -m angioflow.training.train --model wss_query_field --backbone hgps \
-  --save_dir /media/yaplab2/wd8tb/wenhao/datasets/angioflow_pyg_full \
-  --run_name wss_query_p2_fullg_0frame_v1v2_e108f32_gps4_hop4_tok32_qr2 \
-  --versions aneug_flow,angioflow --decimate_ratio 1.0 \
-  --dim_emb 108 --dim_field 32 \
-  --n_pre 2 --n_gps 4 --n_pool 2 --pool_ratio 0.25 --pool_knn_k 8 --n_inter 1 \
-  --geometry_token_pool latent --n_geometry_tokens 32 \
-  --n_blocks 2 --xattn_heads 4 --local_hops 4 --local_heads 4 \
-  --query_sample_ratio 0.2 --grad_ckpt \
-  --pointwise_loss huber --lambda_huber 5.0 --lambda_smooth 0.1 --lambda_logmag 0.1 --lambda_dir 0.1 \
-  --total_epochs 500 --batch_size 16 --device cuda:0 --wandb
-
-# --- Exp 4: n_geometry_tokens 32 -> 64 (near-free per earlier measurement) ---
-python -m angioflow.training.train --model wss_query_field --backbone hgps \
-  --save_dir /media/yaplab2/wd8tb/wenhao/datasets/angioflow_pyg_full \
-  --run_name wss_query_p2_fullg_0frame_v1v2_e64f32_gps4_hop4_tok64_qr2 \
-  --versions aneug_flow,angioflow --decimate_ratio 1.0 \
-  --dim_emb 64 --dim_field 32 \
-  --n_pre 2 --n_gps 4 --n_pool 2 --pool_ratio 0.25 --pool_knn_k 8 --n_inter 1 \
-  --geometry_token_pool latent --n_geometry_tokens 64 \
-  --n_blocks 2 --xattn_heads 4 --local_hops 4 --local_heads 4 \
-  --query_sample_ratio 0.2 --grad_ckpt \
-  --pointwise_loss huber --lambda_huber 5.0 --lambda_smooth 0.1 --lambda_logmag 0.1 --lambda_dir 0.1 \
-  --total_epochs 500 --batch_size 16 --device cuda:1 --wandb
-
-# --- Exp 5: query_sample_ratio 0.2 -> 0.5 (2.5x queries -> local branch edges scale
-# ~linearly with this; batch_size cut from 16 to 6 as a rough compensating guess, NOT
-# verified -- this is the one change most likely to need a memory check before trusting
-# for the full 500-epoch run) ---
-sleep 30000
-python -m angioflow.training.train --model wss_query_field --backbone hgps \
-  --save_dir /media/yaplab2/wd8tb/wenhao/datasets/angioflow_pyg_full \
-  --run_name wss_query_p2_fullg_0frame_v1v2_e64f32_gps4_hop4_tok32_qr5 \
-  --versions aneug_flow,angioflow --decimate_ratio 1.0 \
-  --dim_emb 64 --dim_field 32 \
-  --n_pre 2 --n_gps 4 --n_pool 2 --pool_ratio 0.25 --pool_knn_k 8 --n_inter 1 \
-  --geometry_token_pool latent --n_geometry_tokens 32 \
-  --n_blocks 2 --xattn_heads 4 --local_hops 4 --local_heads 4 \
-  --query_sample_ratio 0.5 --grad_ckpt \
-  --pointwise_loss huber --lambda_huber 5.0 --lambda_smooth 0.1 --lambda_logmag 0.1 --lambda_dir 0.1 \
-  --total_epochs 500 --batch_size 6 --device cuda:2 --wandb
+  --max_wss 35 --log_eps 0.1 --grad_clip_norm 3.0 \
+  --lr 1e-3 --lr_schedule reduce_on_plateau --lr_plateau_factor 0.5 --lr_plateau_patience 15 --lr_warmup_epochs 5 --lr_end_factor 0.01 \
+  --mask_low 0.0 --mask_high 0.25 --grad_ckpt --seed 0 \
+  --batch_size 24 --total_epochs 500 --sanity_every 25 --device cuda:3 --wandb
 
 
 
