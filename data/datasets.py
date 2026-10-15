@@ -1,6 +1,7 @@
 """PyG Datasets for AneuG CFD cases."""
 from __future__ import annotations
 import glob
+import json
 import os
 from functools import lru_cache
 
@@ -15,7 +16,6 @@ from angioflow.data.per_opening_geo import per_opening_geo_dist
 from angioflow.data.mesh import (face_to_edge_index, decimate_zone_mesh,
                                   decimate_fps_ballpivot, compute_vertex_normals)
 from angioflow.data.dataset_tags import DATASET_TAGS, normalize_tag, split_tag_cid
-from angioflow.data.flow_split import flow_split_from_geometry
 
 PHYSICS_KEYS = ["x_wall_shear", "y_wall_shear", "z_wall_shear"]
 
@@ -40,7 +40,8 @@ class AngioFlowWallDataset(Dataset):
         # processed, so nothing produced locally can be mixed into that root.
         self.extracted = extracted
         # add_flow_split: return the outlet flow-split boundary condition as a graph feature,
-        # bc_flow_split [1, 2] = [q_outlet0, q_outlet1] (see _load_static)
+        # bc_flow_split [1, 2] = [q_outlet0, q_outlet1], read per dataset from
+        # <save_dir>/<tag>/flow_split.json (angioflow.data.generate_flow_split)
         self.add_flow_split = add_flow_split
         if extracted:
             per_version_dirs = freeze_dataset = True
@@ -118,6 +119,8 @@ class AngioFlowWallDataset(Dataset):
         super().__init__(root=save_dir if extracted else (case_root_angioflow or case_root_aneug_flow),
                          transform=transform, pre_transform=pre_transform)
         self._rebuild_successful_index()
+        if self.add_flow_split:
+            self._flow_split = self._load_flow_split_table()
         # rank 0 only: DDP ranks each build the dataset and would race on the same files
         if self.sanity_n_normal and int(os.environ.get("RANK", os.environ.get("LOCAL_RANK", 0))) == 0:
             self.render_sanity()
@@ -315,17 +318,31 @@ class AngioFlowWallDataset(Dataset):
             p, f = s["pos"].double(), s["faces"]
             area = 0.5 * torch.linalg.cross(p[f[:, 1]] - p[f[:, 0]], p[f[:, 2]] - p[f[:, 0]]).norm(dim=1).sum()
             s["cot_eigval"] = (s["cot_eigval"].double() * area / (4 * np.pi)).float()
-        # Outlet flow-split boundary condition [q_outlet0, q_outlet1] (sums to 1; single outlet
-        # -> [1, 0]), resolved here on the full mesh, before any crop removes the outlets.
-        # A stored split is the CFD's own value and wins: AneuG-Flow's were not set from outlet
-        # size, so they can't be recomputed. Missing ones (some two-outlet AngioFlow cases) are
-        # recomputed with the size rule those simulations used, Q0/Q1 = (d0/d1)^2.45 -- checked
-        # against the simulated outlet flows (data/flow_split.py).
-        fs = s["flow_split"].double().reshape(-1)[:2]
-        q = fs / fs.sum() if fs.abs().sum() > 0 else torch.from_numpy(
-            flow_split_from_geometry(s["pos"].numpy(), s["node_type"].numpy()))
-        s["bc_flow_split"] = q.float().view(1, 2)
         return s
+
+    def _load_flow_split_table(self):
+        """{(version, cid): [1, 2] tensor}, one flow_split.json per dataset in use. The stored
+        per-case flow_split is NOT used: AneuG-Flow's lists the outlets in the wrong order in
+        ~11% of cases, and some AngioFlow cases have none -- generate_flow_split resolves
+        both, in the registration's outlet order."""
+        from angioflow.data.generate_flow_split import flow_split_file
+        table = {}
+        for version in sorted({v for v, _ in self.case_keys}):
+            path = flow_split_file(self.save_dir, version, self.per_version_dirs)
+            if not os.path.exists(path):
+                raise FileNotFoundError(
+                    f"{path} not found -- run: python -m angioflow.data.generate_flow_split "
+                    f"--root {self.save_dir} --datasets {version}")
+            with open(path) as f:
+                cases = json.load(f)["cases"]
+            missing = [c for v, c in self.case_keys if v == version and c not in cases]
+            if missing:
+                raise KeyError(f"{len(missing)} {version} case(s) missing from {path}, e.g. {missing[:3]} "
+                               f"-- rerun angioflow.data.generate_flow_split --datasets {version}")
+            for v, c in self.case_keys:
+                if v == version:
+                    table[(v, c)] = torch.tensor(cases[c]["q"], dtype=torch.float32).view(1, 2)
+        return table
 
     def len(self):
         return len(self._index)
@@ -351,7 +368,7 @@ class AngioFlowWallDataset(Dataset):
             case_id=cid,                # str — batched as list by PyG
         )
         if self.add_flow_split:
-            data.bc_flow_split = s["bc_flow_split"]   # [1, 2] -> batches to [B, 2]
+            data.bc_flow_split = self._flow_split[(version, cid)]   # [1, 2] -> batches to [B, 2]
         return data
 
 
