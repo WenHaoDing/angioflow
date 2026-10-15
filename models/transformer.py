@@ -121,13 +121,16 @@ class NodeEncoder(nn.Module):
     and cotangent PE -> [N, dim_emb]."""
 
     def __init__(self, n_cot, node_dim_in=6, n_geo_dist=3, dim_pe=32, dim_te=8, dim_wfe=8,
-                 dim_emb=64, pe_n_heads=4, pe_n_layers=4, pe_use_mlp=False):
+                 dim_emb=64, pe_n_heads=4, pe_n_layers=4, pe_use_mlp=False, n_bc=0):
         super().__init__()
+        # n_bc > 0: per-graph boundary-condition vector data.bc_flow_split [B, n_bc]
+        # (outlet flow split), broadcast to every node of its graph like time/waveform
+        self.n_bc = n_bc
         self.cot_pe = CotPE(n_cot, dim_pe=dim_pe, n_heads=pe_n_heads, n_layers=pe_n_layers,
                             use_mlp=pe_use_mlp)
         self.t_enc = TimeEmbedder(dim_te)
         self.wf_enc = WaveformEmbedder(dim_wfe)
-        self.lin = nn.Linear(node_dim_in + n_geo_dist + dim_te + dim_wfe, dim_emb - dim_pe)
+        self.lin = nn.Linear(node_dim_in + n_geo_dist + dim_te + dim_wfe + n_bc, dim_emb - dim_pe)
 
     def forward(self, data, waveform):
         B = int(data.batch.max()) + 1
@@ -139,7 +142,10 @@ class NodeEncoder(nn.Module):
         x = torch.cat([data.pos, data.normals, geo_dist], dim=-1)  # [N, node_dim_in + n_geo_dist]
         t_enc = self.t_enc(data.t)[data.batch]                  # [N, dim_te]
         wf_enc = self.wf_enc(data.t, waveform)[data.batch]      # [N, dim_wfe]
-        h = self.lin(torch.cat([x, t_enc, wf_enc], dim=-1))     # [N, dim_emb - dim_pe]
+        feats = [x, t_enc, wf_enc]
+        if self.n_bc:
+            feats.append(data.bc_flow_split.view(B, self.n_bc)[data.batch])   # [N, n_bc]
+        h = self.lin(torch.cat(feats, dim=-1))                  # [N, dim_emb - dim_pe]
         return torch.cat([h, pe], dim=-1)                       # [N, dim_emb]
 
 

@@ -47,6 +47,7 @@ def build_model(args, stats, device):
         pe_n_heads=args.pe_n_heads,
         pe_n_layers=args.pe_n_layers,
         pe_use_mlp=args.pe_use_mlp,
+        n_bc=2 if getattr(args, "add_flow_split", False) else 0,   # outlet flow-split BC input
         edge_norm_dict=edge_norm_dict,
         attn_type=args.attn_type,
         grad_ckpt=args.grad_ckpt,

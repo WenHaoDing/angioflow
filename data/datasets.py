@@ -15,6 +15,7 @@ from angioflow.data.per_opening_geo import per_opening_geo_dist
 from angioflow.data.mesh import (face_to_edge_index, decimate_zone_mesh,
                                   decimate_fps_ballpivot, compute_vertex_normals)
 from angioflow.data.dataset_tags import DATASET_TAGS, normalize_tag, split_tag_cid
+from angioflow.data.flow_split import flow_split_from_geometry
 
 PHYSICS_KEYS = ["x_wall_shear", "y_wall_shear", "z_wall_shear"]
 
@@ -30,7 +31,7 @@ class AngioFlowWallDataset(Dataset):
                  case_pattern={"aneug_flow": "stable_*", "angioflow": "*"},
                  transform=None, pre_transform=None, redo=False, exclude_keys=None,
                  freeze_dataset=False, per_version_dirs=False, max_cases_per_version=None,
-                 sanity_n_normal=5, sanity_z=3.5, extracted=False):
+                 sanity_n_normal=5, sanity_z=3.5, extracted=False, add_flow_split=False):
         assert save_dir is not None, "save_dir is required"
         assert decimate_method in ("quadric", "fps"), "decimate_method must be 'quadric' or 'fps'"
         # extracted: save_dir is a downloaded AngioFlow-PyG root (<tag>/static_<tag>_*.pt, ...).
@@ -38,6 +39,9 @@ class AngioFlowWallDataset(Dataset):
         # folders, so no local source data is needed (e.g. aneugv2) -- and are never
         # processed, so nothing produced locally can be mixed into that root.
         self.extracted = extracted
+        # add_flow_split: return the outlet flow-split boundary condition as a graph feature,
+        # bc_flow_split [1, 2] = [q_outlet0, q_outlet1] (see _load_static)
+        self.add_flow_split = add_flow_split
         if extracted:
             per_version_dirs = freeze_dataset = True
         self.case_roots = {"aneug_flow": case_root_aneug_flow, "angioflow": case_root_angioflow}
@@ -311,6 +315,16 @@ class AngioFlowWallDataset(Dataset):
             p, f = s["pos"].double(), s["faces"]
             area = 0.5 * torch.linalg.cross(p[f[:, 1]] - p[f[:, 0]], p[f[:, 2]] - p[f[:, 0]]).norm(dim=1).sum()
             s["cot_eigval"] = (s["cot_eigval"].double() * area / (4 * np.pi)).float()
+        # Outlet flow-split boundary condition [q_outlet0, q_outlet1] (sums to 1; single outlet
+        # -> [1, 0]), resolved here on the full mesh, before any crop removes the outlets.
+        # A stored split is the CFD's own value and wins: AneuG-Flow's were not set from outlet
+        # size, so they can't be recomputed. Missing ones (some two-outlet AngioFlow cases) are
+        # recomputed with the size rule those simulations used, Q0/Q1 = (d0/d1)^2.45 -- checked
+        # against the simulated outlet flows (data/flow_split.py).
+        fs = s["flow_split"].double().reshape(-1)[:2]
+        q = fs / fs.sum() if fs.abs().sum() > 0 else torch.from_numpy(
+            flow_split_from_geometry(s["pos"].numpy(), s["node_type"].numpy()))
+        s["bc_flow_split"] = q.float().view(1, 2)
         return s
 
     def len(self):
@@ -320,7 +334,7 @@ class AngioFlowWallDataset(Dataset):
         version, cid, t = self._index[idx]
         s = self._load_static(version, cid)
         wss = torch.load(self._wss_path(version, cid, t), weights_only=False)
-        return Data(
+        data = Data(
             pos=s["pos"],               # [N, 3]
             edge_index=s["edge_index"], # [2, E]
             y=wss,                      # [N, 3]
@@ -336,6 +350,9 @@ class AngioFlowWallDataset(Dataset):
             version=version,            # str — batched as list by PyG
             case_id=cid,                # str — batched as list by PyG
         )
+        if self.add_flow_split:
+            data.bc_flow_split = s["bc_flow_split"]   # [1, 2] -> batches to [B, 2]
+        return data
 
 
 def detect_polluted_cases(save_dir, threshold=3.5, render=False):

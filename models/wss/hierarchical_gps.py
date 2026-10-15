@@ -74,6 +74,7 @@ class AngioHierarchicalGPS(nn.Module):
         pe_n_heads: int = 2,
         pe_n_layers: int = 2,
         pe_use_mlp: bool = True,
+        n_bc: int = 0,
         edge_norm_dict=None,
         attn_type: str = "performer",
         grad_ckpt: bool = False,
@@ -98,6 +99,7 @@ class AngioHierarchicalGPS(nn.Module):
             pe_n_heads=pe_n_heads,
             pe_n_layers=pe_n_layers,
             pe_use_mlp=pe_use_mlp,
+            n_bc=n_bc,
         )
         self.edge_encoder = EdgeEncoder(
             n_cot, dim_emb=dim_emb, edge_norm_dict=edge_norm_dict,

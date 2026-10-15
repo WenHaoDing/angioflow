@@ -16,10 +16,6 @@ import os
 import random
 import shutil
 import time
-os.environ.setdefault(
-    "WANDB_API_KEY",
-    "delete",
-)
 from collections import defaultdict
 
 import numpy as np
@@ -105,6 +101,21 @@ def _slice_for_query(batch, query_idx):
     return batch.y[query_idx], batch.normals[query_idx], None
 
 
+def _apply_loss_mask(batch, pred, y, normals, edge_index, query_idx):
+    """--crop_loss_mask: the model sees the whole graph, but the loss only counts the
+    crop region (batch.loss_mask). Returns (pred, y, normals) restricted to that region
+    for the pointwise terms, plus the full pred and the edges with both ends inside it
+    for the smoothness term. Without a mask everything passes through unchanged."""
+    m = getattr(batch, "loss_mask", None)
+    if m is None:
+        return pred, y, normals, pred, edge_index
+    if query_idx is not None:
+        m = m[query_idx]
+    if edge_index is not None:
+        edge_index = edge_index[:, m[edge_index[0]] & m[edge_index[1]]]
+    return pred[m], y[m], normals[m], pred, edge_index
+
+
 @torch.no_grad()
 def evaluate(model, loader, waveform, device, y_mean, y_std, log_eps, max_wss, huber_delta,
              pointwise_kind="huber", max_batches=None):
@@ -115,7 +126,8 @@ def evaluate(model, loader, waveform, device, y_mean, y_std, log_eps, max_wss, h
             break
         batch = batch.to(device)
         pred, query_idx = _unpack_pred(model(batch, waveform))
-        y, _, _ = _slice_for_query(batch, query_idx)
+        y, normals, _ = _slice_for_query(batch, query_idx)
+        pred, y, _, _, _ = _apply_loss_mask(batch, pred, y, normals, None, query_idx)
         tot_logmag += log_mag_loss(pred, y, y_mean, y_std, log_eps, max_wss).item() * batch.num_graphs
         tot_huber  += _pointwise_loss(pred, y, pointwise_kind, huber_delta).item() * batch.num_graphs
         tot_mse    += ((pred - y) * y_std).pow(2).mean().item() * batch.num_graphs
@@ -249,6 +261,18 @@ def get_args():
     add_schedule_args(p)
     add_misc_args(p)
     get_model_config(known.model).add_args(p)
+    p.add_argument("--no_crop", action="store_true",
+                   help="train and test on the whole vessel mesh: skip AneurysmCrop "
+                        "(--mask_low/--mask_high/--crop_aneurysm_only are ignored). Graphs are "
+                        "~2x larger than cropped ones, so lower --batch_size accordingly")
+    p.add_argument("--crop_loss_mask", action="store_true",
+                   help="with --no_crop: the model still takes the whole graph, but the loss (and "
+                        "the per-epoch test loss) only counts the region AneurysmCrop would keep "
+                        "(--mask_low/--mask_high/--crop_aneurysm_only apply again)")
+    p.add_argument("--add_flow_split", action="store_true",
+                   help="feed the outlet flow-split boundary condition [q_outlet0, q_outlet1] to the "
+                        "model as a per-graph input (stored value, else recomputed from outlet size; "
+                        "single outlet -> [1, 0]). hierarchical_gps only")
     p.add_argument("--sanity_every", type=int, default=50,
                    help="render WSS sanity snapshots every N epochs (epoch 0 included)")
     p.add_argument("--ckpt_every", type=int, default=100,
@@ -258,7 +282,10 @@ def get_args():
                    help="smoke test: stop after this many training steps (and evaluate on as many "
                         "test batches), print per-step loss/time/GPU memory, render one sanity "
                         "snapshot, save no checkpoints")
-    return p.parse_args()
+    args = p.parse_args()
+    if args.add_flow_split and args.model != "hierarchical_gps":
+        p.error("--add_flow_split is only wired into hierarchical_gps")
+    return args
 
 
 def get_model(args, stats, device):
@@ -281,6 +308,7 @@ def main(args):
         lap_k=args.lap_k,
         exclude_keys=exclude_keys,
         extracted=args.extracted,
+        add_flow_split=args.add_flow_split,
     )
     if args.frames == "all":
         # note: the full dataset has no `versions` filter — all versions are used
@@ -306,13 +334,17 @@ def main(args):
     print(f"[train] model={args.model}  log-mag loss eps={args.log_eps:.2f} max={args.max_wss:.1f} Pa/s  "
           f"pointwise={args.pointwise_loss}")
 
-    transforms = [
-        CenterAndRandomRotate(rotate=True),
-        PosYNormalize(stats),
-        AneurysmCrop(low=args.mask_low, high=args.mask_high,
-                     aneurysm_only=args.crop_aneurysm_only),
-        SymmetrizeEdges(),   # after cropping: symmetrizes the smaller, already-cropped edge set
-    ]
+    transforms = [CenterAndRandomRotate(rotate=True), PosYNormalize(stats)]
+    if args.crop_loss_mask and not args.no_crop:
+        raise SystemExit("--crop_loss_mask only makes sense with --no_crop")
+    if not args.no_crop or args.crop_loss_mask:
+        transforms.append(AneurysmCrop(low=args.mask_low, high=args.mask_high,
+                                       aneurysm_only=args.crop_aneurysm_only,
+                                       as_loss_mask=args.crop_loss_mask))
+    transforms.append(SymmetrizeEdges())   # after cropping: symmetrizes the (cropped) edge set
+    region = f"AneurysmCrop {args.mask_low}-{args.mask_high}{' aneurysm_only' if args.crop_aneurysm_only else ''}"
+    print(f"[train] crop: " + ("whole mesh in, loss on " + region if args.crop_loss_mask else
+                               "none (whole mesh)" if args.no_crop else region))
     dataset.transform = _chain(*transforms)
 
     train_loader = DataLoader(Subset(dataset, train_idx),
@@ -364,10 +396,12 @@ def main(args):
             optim.zero_grad()
             pred, query_idx = _unpack_pred(model(batch, waveform))
             y, normals, edge_index = _slice_for_query(batch, query_idx)
-            loss_logmag = log_mag_loss(pred, y, y_mean, y_std, args.log_eps, args.max_wss)
-            loss_huber  = _pointwise_loss(pred, y, args.pointwise_loss, huber_delta)
-            loss_smooth = tv_smooth_loss(pred, edge_index) if edge_index is not None else pred.new_zeros(())
-            loss_dir = directional_loss(pred, normals, y_mean, y_std)
+            pred_l, y, normals, pred_s, edge_index = _apply_loss_mask(
+                batch, pred, y, normals, edge_index, query_idx)
+            loss_logmag = log_mag_loss(pred_l, y, y_mean, y_std, args.log_eps, args.max_wss)
+            loss_huber  = _pointwise_loss(pred_l, y, args.pointwise_loss, huber_delta)
+            loss_smooth = tv_smooth_loss(pred_s, edge_index) if edge_index is not None else pred.new_zeros(())
+            loss_dir = directional_loss(pred_l, normals, y_mean, y_std)
             loss = args.lambda_logmag * loss_logmag + args.lambda_huber * loss_huber \
                  + args.lambda_smooth * loss_smooth + args.lambda_dir * loss_dir
             if torch.isnan(loss):
@@ -470,8 +504,8 @@ conda activate new
 python -m angioflow.training.train --model hierarchical_gps \
   --extracted --save_dir /media/yaplab2/wd8tb/wenhao/datasets/AngioFlow-PyG \
   --ckpt_root /media/yaplab2/wd8tb/wenhao/datasets/AngioFlow-PyG_checkpoints \
-  --run_name hier_gps_p1_e128_npre2_gps8_npost4_knn8_inter2_pr015_aneugflow_angioflow \
-  --versions aneug_flow,angioflow --frames 0 --train_frac 0.9 --decimate_ratio 1.0 \
+  --run_name hier_gps_p1_e128_npre2_gps8_npost4_knn8_inter2_pr015_aneugflow_angioflow_aneugv2 \
+  --versions aneug_flow,angioflow,aneugv2 --frames 0 --train_frac 0.9 --decimate_ratio 1.0 \
   --attn_type performer --dim_emb 128 --dim_pe 16 --dim_te 8 --dim_wfe 8 \
   --n_pre 2 --n_gps 8 --n_post 4 --n_pool 1 --pool_ratio 0.15 --pool_knn_k 8 --n_inter 2 --n_heads 4 \
   --pe_use_mlp --pe_n_heads 2 --pe_n_layers 2 \
@@ -479,8 +513,23 @@ python -m angioflow.training.train --model hierarchical_gps \
   --max_wss 35 --log_eps 0.1 --grad_clip_norm 3.0 \
   --lr 1e-3 --lr_schedule reduce_on_plateau --lr_plateau_factor 0.5 --lr_plateau_patience 15 --lr_warmup_epochs 5 --lr_end_factor 0.01 \
   --mask_low 0.0 --mask_high 0.25 --grad_ckpt --seed 0 \
-  --batch_size 24 --total_epochs 500 --sanity_every 25 --device cuda:3 --wandb
+  --batch_size 24 --total_epochs 500 --sanity_every 25 --device cuda:2 --wandb
 
+
+python -m angioflow.training.train --model hierarchical_gps \
+  --extracted --save_dir /media/yaplab2/wd8tb/wenhao/datasets/AngioFlow-PyG \
+  --ckpt_root /media/yaplab2/wd8tb/wenhao/datasets/AngioFlow-PyG_checkpoints \
+  --run_name hier_gps_p1_e128_npre2_gps8_npost4_knn8_inter2_pr015_aneugflow_angioflow_aneugv2_nocrop_lossmask \
+  --versions aneug_flow,angioflow,aneugv2 --frames 0 --train_frac 0.9 --decimate_ratio 1.0 \
+  --no_crop --crop_loss_mask --mask_low 0.0 --mask_high 0.25 \
+  --attn_type performer --dim_emb 128 --dim_pe 16 --dim_te 8 --dim_wfe 8 \
+  --n_pre 2 --n_gps 8 --n_post 4 --n_pool 1 --pool_ratio 0.15 --pool_knn_k 8 --n_inter 2 --n_heads 4 \
+  --pe_use_mlp --pe_n_heads 2 --pe_n_layers 2 \
+  --pointwise_loss huber --lambda_huber 5.0 --lambda_smooth 0.0 --lambda_logmag 0.1 --lambda_dir 0.1 \
+  --max_wss 35 --log_eps 0.1 --grad_clip_norm 3.0 \
+  --lr 1e-3 --lr_schedule reduce_on_plateau --lr_plateau_factor 0.5 --lr_plateau_patience 30 --lr_warmup_epochs 5 --lr_end_factor 0.01 \
+  --grad_ckpt --seed 0 \
+  --batch_size 14 --total_epochs 500 --sanity_every 25 --device cuda:2 --wandb
 
 
 """
