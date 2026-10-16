@@ -137,7 +137,9 @@ def evaluate(model, loader, waveform, device, y_mean, y_std, log_eps, max_wss, h
 
 
 def save_ckpt(path, model, optim, sched, epoch, best_loss, args=None):
+    # written to <path>.tmp, then renamed: a run killed mid-save keeps the previous file
     os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = path + ".tmp"
     torch.save({
         "model": model.state_dict(),
         "optim": optim.state_dict(),
@@ -147,7 +149,8 @@ def save_ckpt(path, model, optim, sched, epoch, best_loss, args=None):
         # full training config: lets eval scripts rebuild the model without
         # having to re-specify hyperparameters by hand
         "args": vars(args) if args is not None else None,
-    }, path)
+    }, tmp)
+    os.replace(tmp, path)
 
 
 def build_scheduler(optim, args):
@@ -292,7 +295,9 @@ def get_model(args, stats, device):
     return get_model_config(args.model).build_model(args, stats, device)
 
 
-def main(args):
+def main(args, epoch_end_hook=None):
+    """epoch_end_hook(epoch, ckpt_dir), if given, runs after each epoch's checkpoints are
+    written (train_hf.py uses it to push the run to the Hub)."""
     device = torch.device(args.device)
     torch.manual_seed(args.seed); np.random.seed(args.seed); random.seed(args.seed)
 
@@ -489,6 +494,8 @@ def main(args):
             best_loss = test_loss
             save_ckpt(ckpt_best, model, optim, sched, epoch, best_loss, args)
             print(f"  ↳ new best @ epoch {epoch} (test_loss={best_loss:.4g})")
+        if epoch_end_hook is not None:
+            epoch_end_hook(epoch, ckpt_dir)
 
     if args.wandb:
         wandb.finish()
@@ -531,5 +538,20 @@ python -m angioflow.training.train --model hierarchical_gps \
   --grad_ckpt --seed 0 \
   --batch_size 14 --total_epochs 500 --sanity_every 25 --device cuda:2 --wandb
 
+cd "/media/yaplab2/HDD Storage/wenhao"
+conda activate new
+CUDA_VISIBLE_DEVICES=GPU-300a26e1-ee34-ecd4-4ffc-d92fe1cb8c77 python -m angioflow.training.train --model hierarchical_gps \
+  --extracted --save_dir /media/yaplab2/wd8tb/wenhao/datasets/AngioFlow-PyG \
+  --ckpt_root /media/yaplab2/wd8tb/wenhao/datasets/AngioFlow-PyG_checkpoints \
+  --run_name hier_gps_p1_e128_npre2_gps8_npost4_knn8_inter2_pr015_aneugflow_angioflow_aneugv2_flowsplit \
+  --versions aneug_flow,angioflow,aneugv2 --frames 0 --train_frac 0.9 --decimate_ratio 1.0 --add_flow_split \
+  --attn_type performer --dim_emb 128 --dim_pe 16 --dim_te 8 --dim_wfe 8 \
+  --n_pre 2 --n_gps 8 --n_post 4 --n_pool 1 --pool_ratio 0.15 --pool_knn_k 8 --n_inter 2 --n_heads 4 \
+  --pe_use_mlp --pe_n_heads 2 --pe_n_layers 2 \
+  --pointwise_loss huber --lambda_huber 5.0 --lambda_smooth 0.0 --lambda_logmag 0.1 --lambda_dir 0.1 \
+  --max_wss 35 --log_eps 0.1 --grad_clip_norm 3.0 \
+  --lr 1e-3 --lr_schedule reduce_on_plateau --lr_plateau_factor 0.5 --lr_plateau_patience 15 --lr_warmup_epochs 5 --lr_end_factor 0.01 \
+  --mask_low 0.0 --mask_high 0.25 --grad_ckpt --seed 0 \
+  --batch_size 24 --total_epochs 350 --sanity_every 25 --device cuda:0 --wandb
 
 """

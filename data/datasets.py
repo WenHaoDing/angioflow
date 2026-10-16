@@ -11,10 +11,6 @@ from scipy.spatial import cKDTree
 
 from torch_geometric.data import Data, Dataset
 
-from angioflow.data.graph import compute_pe_cot_eigenvector
-from angioflow.data.per_opening_geo import per_opening_geo_dist
-from angioflow.data.mesh import (face_to_edge_index, decimate_zone_mesh,
-                                  decimate_fps_ballpivot, compute_vertex_normals)
 from angioflow.data.dataset_tags import DATASET_TAGS, normalize_tag, split_tag_cid
 
 PHYSICS_KEYS = ["x_wall_shear", "y_wall_shear", "z_wall_shear"]
@@ -213,6 +209,12 @@ class AngioFlowWallDataset(Dataset):
         self._index = index
 
     def _process_case(self, version, cid, case_dir, reg_path):
+        # imported here, not at module level: they pull in pytorch3d / pyvista / AneuG, which
+        # training on extracted data (e.g. on an HF Job, training/train_hf.py) never needs
+        from angioflow.data.graph import compute_pe_cot_eigenvector
+        from angioflow.data.per_opening_geo import per_opening_geo_dist
+        from angioflow.data.mesh import (face_to_edge_index, decimate_zone_mesh,
+                                          decimate_fps_ballpivot, compute_vertex_normals)
         reg = torch.load(reg_path, weights_only=False)
         pos = reg["pos"].numpy().astype(np.float64)
         faces = reg["faces"].numpy().astype(np.int64)
