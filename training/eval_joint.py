@@ -66,7 +66,6 @@ import numpy as np
 import torch
 from torch_geometric.data import Batch
 
-from angioflow.data.datasets import load_excluded_keys
 from angioflow.data.gradient_verification.verify_interior_gradients import (
     _safe_filename, render_field_comparison)
 from angioflow.data.normalize import load_or_compute_stats
@@ -76,7 +75,8 @@ from angioflow.training.eval_leaderboard import load_existing_run_summary, upser
 from angioflow.training.eval_wss import VIZ_MAX_WSS_PA, _pyvista_stdio_guard, render_wss_panel
 from angioflow.training.eval_wss import write_vtk_case as write_vtk_wall
 from angioflow.training.train import _chain, load_waveform, split_by_case
-from angioflow.training.train_joint import _WallOnly, build_dataset, build_model, interior_stats_path
+from angioflow.training.train_joint import (_WallOnly, build_dataset, build_model, excluded_case_keys,
+                                            interior_stats_path)
 from angioflow.transform import (CenterAndRandomRotate, JointAneurysmCrop, JointNormalize,
                                  PressureZeroMax, SymmetrizeEdges)
 from angioflow.visualize.sanity import _make_surface_mesh
@@ -236,8 +236,7 @@ def main():
     chk = torch.load(ckpt_path, map_location=device, weights_only=False)
     train_args = argparse.Namespace(**chk["args"])
 
-    exclude_keys = load_excluded_keys(train_args.save_dir) if train_args.exclude_anomalies else set()
-    dataset = build_dataset(train_args, exclude_keys)
+    dataset = build_dataset(train_args, excluded_case_keys(train_args))
     train_idx, test_idx = split_by_case(dataset, train_args.train_frac, seed=train_args.seed)
     print(f"[data] {len(dataset)} samples  train={len(train_idx)}  test={len(test_idx)}")
 

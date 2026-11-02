@@ -30,6 +30,7 @@ from torch_geometric.loader import DataLoader
 
 from angioflow.config.defaults import (add_data_args, add_encoder_args, add_optim_args,
                                        add_schedule_args, add_misc_args)
+from angioflow.data.dataset_tags import DATASET_TAGS, normalize_tag
 from angioflow.data.datasets import load_excluded_keys
 from angioflow.data.datasets_interior import (AngioFlowWallInteriorDataset,
                                               AngioFlowWallInteriorDatasetT0)
@@ -144,6 +145,10 @@ def add_model_args(parser):
                    help="feed the outlet flow-split boundary condition [q_outlet0, q_outlet1] "
                         "(<save_dir>/<tag>/flow_split.json) to the geometry encoder as a "
                         "per-graph input, as train.py --add_flow_split does for WSS")
+    g.add_argument("--exclude_cases", default="",
+                   help="comma-separated cases to leave out of train AND test, as <case> (any "
+                        "dataset) or <tag>/<case>, e.g. C0064_cut2 -- on top of the anomaly "
+                        "lists, and applied even with --no_exclude_anomalies")
     g.add_argument("--no_data_sanity", action="store_true",
                    help="skip the dataset's startup sanity renders (outliers + normal samples, "
                         "wall + interior). Render them separately, in parallel on the CPU: "
@@ -164,6 +169,25 @@ def get_args():
     # first xf run) while 3e-4 learns cleanly (single-batch overfit: 0.92 -> 0.09)
     p.set_defaults(wandb_project="AngioFlowJoint", lr=3e-4)
     return p.parse_args()
+
+
+def excluded_case_keys(args):
+    """(tag, case) keys to drop: the anomaly lists in save_dir (--exclude_anomalies) plus
+    --exclude_cases. A bare <case> matches every dataset that has it (extracted roots are
+    checked on disk; source roots get every tag); a name matching nothing aborts, so a
+    typo can't silently leave the case in."""
+    keys = load_excluded_keys(args.save_dir) if args.exclude_anomalies else set()
+    for name in filter(None, (s.strip() for s in getattr(args, "exclude_cases", "").split(","))):
+        tag, sep, cid = name.rpartition("/")
+        cand = [(normalize_tag(tag), cid)] if sep else [(t, cid) for t in DATASET_TAGS]
+        if getattr(args, "extracted", False):
+            cand = [(t, c) for t, c in cand
+                    if os.path.exists(os.path.join(args.save_dir, t, f"static_{t}_{c}.pt"))]
+        if not cand:
+            raise SystemExit(f"[exclude] --exclude_cases {name}: no such case under {args.save_dir}")
+        print(f"[exclude] --exclude_cases: {', '.join(f'{t}/{c}' for t, c in cand)}")
+        keys.update(cand)
+    return keys
 
 
 def build_dataset(args, exclude_keys):
@@ -399,8 +423,7 @@ def main(args, epoch_end_hook=None):
     device = torch.device(args.device)
     torch.manual_seed(args.seed); np.random.seed(args.seed); random.seed(args.seed)
 
-    exclude_keys = load_excluded_keys(args.save_dir) if args.exclude_anomalies else set()
-    dataset = build_dataset(args, exclude_keys)
+    dataset = build_dataset(args, excluded_case_keys(args))
     train_idx, test_idx = split_by_case(dataset, args.train_frac, seed=args.seed)
     print(f"[data] {len(dataset)} samples  train={len(train_idx)}  test={len(test_idx)}")
 
