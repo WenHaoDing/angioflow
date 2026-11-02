@@ -50,7 +50,7 @@ import signal
 import sys
 import time
 
-from huggingface_hub import HfApi, snapshot_download
+from huggingface_hub import HfApi, hf_hub_download, snapshot_download
 
 import angioflow.training.train_joint as joint_mod
 from angioflow.data.datasets import AngioFlowWallDataset
@@ -74,6 +74,9 @@ def parse_args():
                    help=f"file under {META_PREFIX}/ of --ckpt_repo used as <save_dir>/stats.pt")
     p.add_argument("--work_dir", default=WORK_DIR, help="local data/ and ckpt/ go here")
     p.add_argument("--push_every_min", type=float, default=20.0)
+    p.add_argument("--init_ckpt", default=None,
+                   help="path inside --ckpt_repo (e.g. _init/<name>.pth) of a checkpoint whose model "
+                        "weights start a NEW run (train_joint.py --init_from)")
     p.add_argument("--skip_download", action="store_true",
                    help="data already in <work_dir>/data (e.g. a local test): don't download")
     p.add_argument("--no_push", action="store_true", help="never write to the Hub (local test)")
@@ -139,6 +142,11 @@ def main():
                              f"{own.ckpt_repo}/{META_PREFIX}/ -- upload it (see train_hf.py's docstring)")
         targs.waveform_path = local
         print(f"[hf] waveform <- {own.ckpt_repo}/{META_PREFIX}/{os.path.basename(local)}")
+
+    if own.init_ckpt:
+        targs.init_from = hf_hub_download(own.ckpt_repo, own.init_ckpt, token=own.token,
+                                          local_dir=os.path.join(own.work_dir, "init"))
+        print(f"[hf] init weights <- {own.ckpt_repo}/{own.init_ckpt}", flush=True)
 
     # resume an existing run
     on_hub = run_files_on_hub(api, own.ckpt_repo, targs.run_name)

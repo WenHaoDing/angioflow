@@ -148,6 +148,17 @@ def add_model_args(parser):
                    help="skip the dataset's startup sanity renders (outliers + normal samples, "
                         "wall + interior). Render them separately, in parallel on the CPU: "
                         "python -m angioflow.visualize.data_sanity --save_dir <save_dir> --workers 16")
+    g.add_argument("--test_versions", default="",
+                   help="comma-separated datasets that get a test split (e.g. angioflow); every case "
+                        "of the others trains. Default: all. The test cases of a listed dataset are "
+                        "the same ones it gets without this flag")
+    g.add_argument("--init_from", default=None,
+                   help="checkpoint (.pth) whose model weights initialise a NEW run (fresh optimizer, "
+                        "scheduler, warmup, epoch 0); ignored when the run resumes from its own last.pth")
+    g.add_argument("--resume_lr", type=float, default=None,
+                   help="on resume, set the optimizer's LR to this (e.g. after raising --batch_size); "
+                        "applied once -- a later resume from a checkpoint saved with the same value "
+                        "keeps that checkpoint's (possibly plateau-reduced) LR")
     g.add_argument("--max_steps", type=int, default=None,
                    help="smoke test: stop after this many training steps (and evaluate on as many "
                         "test batches), print per-step loss/time/GPU memory, render one sanity "
@@ -164,6 +175,38 @@ def get_args():
     # first xf run) while 3e-4 learns cleanly (single-batch overfit: 0.92 -> 0.09)
     p.set_defaults(wandb_project="AngioFlowJoint", lr=3e-4)
     return p.parse_args()
+
+
+def test_versions(args):
+    """--test_versions as a list, or None (every dataset gets a test split). Old runs' args
+    have no such key."""
+    names = [s.strip() for s in getattr(args, "test_versions", "").split(",") if s.strip()]
+    return names or None
+
+
+def apply_resume_overrides(args, ckpt_path, optim, sched):
+    """After maybe_resume loaded the optimizer + scheduler state: the CLI's plateau patience
+    and factor win over the checkpoint's (ReduceLROnPlateau.state_dict() stores them, so a
+    changed --lr_plateau_patience would otherwise be silently ignored), and --resume_lr sets
+    the LR -- once: if the checkpoint was itself saved by a run with the same --resume_lr,
+    its LR (maybe already plateau-halved) is kept."""
+    if isinstance(sched, torch.optim.lr_scheduler.ReduceLROnPlateau):
+        if (sched.patience, sched.factor) != (args.lr_plateau_patience, args.lr_plateau_factor):
+            print(f"[resume] plateau patience {sched.patience} -> {args.lr_plateau_patience}, "
+                  f"factor {sched.factor} -> {args.lr_plateau_factor}")
+            sched.patience, sched.factor = args.lr_plateau_patience, args.lr_plateau_factor
+    if args.resume_lr is None:
+        return
+    prev = None
+    if os.path.exists(ckpt_path):
+        prev = (torch.load(ckpt_path, map_location="cpu", weights_only=False).get("args") or {}).get("resume_lr")
+    if prev == args.resume_lr:
+        print(f"[resume] --resume_lr {args.resume_lr:g} already applied by an earlier run; "
+              f"keeping the checkpoint's LR {optim.param_groups[0]['lr']:.3g}")
+        return
+    print(f"[resume] LR {optim.param_groups[0]['lr']:.3g} -> {args.resume_lr:.3g} (--resume_lr)")
+    for pg in optim.param_groups:
+        pg["lr"] = args.resume_lr
 
 
 def build_dataset(args, exclude_keys):
@@ -400,7 +443,8 @@ def main(args, epoch_end_hook=None):
     torch.manual_seed(args.seed); np.random.seed(args.seed); random.seed(args.seed)
 
     dataset = build_dataset(args, excluded_case_keys(args))
-    train_idx, test_idx = split_by_case(dataset, args.train_frac, seed=args.seed)
+    train_idx, test_idx = split_by_case(dataset, args.train_frac, seed=args.seed,
+                                        test_versions=test_versions(args))
     print(f"[data] {len(dataset)} samples  train={len(train_idx)}  test={len(test_idx)}")
 
     train_keys = {(v, c) for (v, c, _) in (dataset._index[i] for i in train_idx)}
@@ -454,6 +498,13 @@ def main(args, epoch_end_hook=None):
     epoch_start, best_loss = 0, float("inf")
     if args.resume:
         epoch_start, best_loss = maybe_resume(ckpt_dir, model, optim, sched)
+        if epoch_start > 0:
+            apply_resume_overrides(args, ckpt_last, optim, sched)
+    if epoch_start == 0 and args.init_from:
+        init = torch.load(args.init_from, map_location="cpu", weights_only=False)
+        model.load_state_dict(init["model"])
+        print(f"[init] model weights from {args.init_from} (its epoch {init.get('epoch')}, "
+              f"best={init.get('best_loss', float('nan')):.4g}); optimizer/scheduler start fresh")
     history_path = os.path.join(ckpt_dir, "history.csv")
     init_history(history_path, epoch_start, HISTORY_FIELDS)
 

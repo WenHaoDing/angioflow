@@ -73,9 +73,12 @@ def _chain(*transforms):
     return _apply
 
 
-def split_by_case(dataset, train_frac=0.8, seed=0):
+def split_by_case(dataset, train_frac=0.8, seed=0, test_versions=None):
     # Stratified by version: split each version 80/20 independently so the
     # test set always contains cases from every version present in the dataset.
+    # test_versions (e.g. ["angioflow"]): only these get a test split, every case of the
+    # others trains. Every version is still shuffled in the same order, so the split of
+    # a test version is identical to the one without test_versions.
     per_version = defaultdict(list)
     for v, c, _ in dataset._index:
         per_version[v].append((v, c))
@@ -85,7 +88,7 @@ def split_by_case(dataset, train_frac=0.8, seed=0):
     for v in sorted(per_version):
         keys = sorted(set(per_version[v]))
         rng.shuffle(keys)
-        n_train = int(len(keys) * train_frac)
+        n_train = int(len(keys) * train_frac) if test_versions is None or v in test_versions else len(keys)
         train_keys.update(keys[:n_train])
         print(f"[split] {v}: {n_train} train  {len(keys)-n_train} test")
 

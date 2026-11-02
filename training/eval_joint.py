@@ -76,7 +76,7 @@ from angioflow.training.eval_wss import VIZ_MAX_WSS_PA, _pyvista_stdio_guard, re
 from angioflow.training.eval_wss import write_vtk_case as write_vtk_wall
 from angioflow.training.train import _chain, load_waveform, split_by_case
 from angioflow.training.train_joint import (_WallOnly, build_dataset, build_model, excluded_case_keys,
-                                            interior_stats_path)
+                                            interior_stats_path, test_versions)
 from angioflow.transform import (CenterAndRandomRotate, JointAneurysmCrop, JointNormalize,
                                  PressureZeroMax, SymmetrizeEdges)
 from angioflow.visualize.sanity import _make_surface_mesh
@@ -237,7 +237,8 @@ def main():
     train_args = argparse.Namespace(**chk["args"])
 
     dataset = build_dataset(train_args, excluded_case_keys(train_args))
-    train_idx, test_idx = split_by_case(dataset, train_args.train_frac, seed=train_args.seed)
+    train_idx, test_idx = split_by_case(dataset, train_args.train_frac, seed=train_args.seed,
+                                        test_versions=test_versions(train_args))
     print(f"[data] {len(dataset)} samples  train={len(train_idx)}  test={len(test_idx)}")
 
     train_keys = {(v, c) for (v, c, _) in (dataset._index[i] for i in train_idx)}
