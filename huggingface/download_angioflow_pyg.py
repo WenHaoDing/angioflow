@@ -177,8 +177,10 @@ def main(argv=None):
                 plan.append((what, tag, path, size, sha, part_json, is_done(args.dest, path, sha, args.frames)))
     todo = [x for x in plan if not x[6]]
     biggest = max((x[3] for x in todo), default=0)
-    free = shutil.disk_usage(os.path.dirname(os.path.abspath(args.dest)) if not os.path.exists(args.dest)
-                             else args.dest).free
+    probe = os.path.abspath(args.dest)
+    while not os.path.exists(probe):                   # nearest existing ancestor (a fresh Job
+        probe = os.path.dirname(probe)                 # has no <work_dir> yet either)
+    free = shutil.disk_usage(probe).free
     print(f"[plan] {len(plan)} archive(s), {len(plan) - len(todo)} already extracted, {len(todo)} to fetch "
           f"({sum(x[3] for x in todo) / 1e9:.1f} GB) -> {args.dest}")
     for what, tag, path, size, _, _, done in plan:
