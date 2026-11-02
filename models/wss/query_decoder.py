@@ -54,6 +54,13 @@ def k_hop_edges(edge_index, num_nodes, k):
     edge_index = to_undirected(edge_index, num_nodes=num_nodes)
     if k <= 1:
         return coalesce(edge_index, num_nodes=num_nodes)
+    # The hop products run on the CPU: on CUDA, EdgeIndex.matmul is a cuSPARSE CSR SpGEMM
+    # (torch 2.4, "beta"), which on large batches (~57k-node walls, 3 datasets, crop up
+    # to 0.25) corrupted GPU memory -- a later, unrelated GATv2 gather then hit a
+    # device-side index assert, deterministically at step 13 of epoch 0 (2026-11-02).
+    # Same result either way; the CPU cost is small next to a training step.
+    device = edge_index.device
+    edge_index = edge_index.cpu()
     ei = EdgeIndex(edge_index, sparse_size=(num_nodes, num_nodes)).sort_by("row")[0]
     cur = ei
     all_edges = edge_index
@@ -62,7 +69,7 @@ def k_hop_edges(edge_index, num_nodes, k):
         cur, _ = remove_self_loops(cur)
         all_edges = torch.cat([all_edges, cur], dim=1)
         cur = EdgeIndex(cur, sparse_size=(num_nodes, num_nodes)).sort_by("row")[0]
-    return coalesce(all_edges, num_nodes=num_nodes)
+    return coalesce(all_edges, num_nodes=num_nodes).to(device)
 
 
 def query_local_edges(edge_index, query_idx, n_full):
