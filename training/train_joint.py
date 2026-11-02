@@ -134,6 +134,9 @@ def add_model_args(parser):
     g.add_argument("--log_eps",       type=float, default=0.1)
     g.add_argument("--sanity_every", type=int, default=50,
                    help="render pred-vs-GT WSS + velocity every N epochs (0 disables)")
+    g.add_argument("--ckpt_every", type=int, default=100,
+                   help="save an extra epoch_XXXX.pth every N epochs (last.pth / best.pth are "
+                        "written every epoch / on improvement regardless)")
     # data plumbing (interior side, mirrors train_interior.py)
     g.add_argument("--data_pool_ratio", type=float, default=0.16)
     g.add_argument("--interior_dir", default=None)
@@ -608,7 +611,7 @@ def main(args, epoch_end_hook=None):
                 print(f"[sanity] render failed at epoch {epoch}: {e}", flush=True)
 
         save_ckpt(ckpt_last, model, optim, sched, epoch, best_loss, args)
-        if epoch % 100 == 0:
+        if args.ckpt_every and epoch % args.ckpt_every == 0:
             save_ckpt(os.path.join(ckpt_dir, f"epoch_{epoch:04d}.pth"),
                       model, optim, sched, epoch, best_loss, args)
         if te_loss < best_loss:
