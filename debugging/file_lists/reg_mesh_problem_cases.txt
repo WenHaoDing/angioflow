@@ -1,0 +1,12 @@
+C0089_cut2	no smoothing round completed (regularizer status overshoot_limited)
+C0090_cut2	no smoothing round completed (regularizer status overshoot_limited)
+UPF_P0229.00_ID1_cut1	no smoothing round completed (regularizer status overshoot_limited)
+UPF_P0232.01_ID1_cut1	no smoothing round completed (regularizer status overshoot_limited)
+UPF_P0272.00_ID1_cut1	no smoothing round completed (regularizer status guard_stopped)
+UPF_P0277.00_ID1_cut1	no smoothing round completed (regularizer status overshoot_limited)
+UPF_P0280.00_ID2_cut1	no smoothing round completed (regularizer status overshoot_limited)
+UPF_P0286.00_ID1_cut1	no smoothing round completed (regularizer status overshoot_limited)
+USFD_0011_cut1	no smoothing round completed (regularizer status overshoot_limited)
+W1GD4X6con_aneurysm1	open boundaries changed from 4 to 3
+r2EVkwBdXy_aneurysm1	open boundaries changed from 3 to 2
+yHqeJVY84k_aneurysm1	open boundaries changed from 3 to 2
