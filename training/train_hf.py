@@ -128,7 +128,7 @@ def fetch_meta(own, name, dest):
     return True
 
 
-def check_resume_config(ckpt_dir, targs, allow):
+def check_resume_config(ckpt_dir, targs, allow, free_keys=RESUME_FREE_KEYS):
     path = os.path.join(ckpt_dir, "args.json")
     if not os.path.exists(path):
         return
@@ -136,7 +136,7 @@ def check_resume_config(ckpt_dir, targs, allow):
         old = json.load(f)
     new = json.loads(json.dumps(vars(targs), default=str))
     diff = {k: (old.get(k, "<absent>"), new.get(k, "<absent>")) for k in sorted(set(old) | set(new))
-            if k not in RESUME_FREE_KEYS and old.get(k, "<absent>") != new.get(k, "<absent>")}
+            if k not in free_keys and old.get(k, "<absent>") != new.get(k, "<absent>")}
     if diff:
         msg = "\n".join(f"  {k}: run={a!r}  now={b!r}" for k, (a, b) in diff.items())
         if not allow:

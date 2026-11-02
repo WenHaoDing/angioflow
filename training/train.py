@@ -210,22 +210,23 @@ HISTORY_FIELDS = ["epoch", "train_logmag", "train_huber", "train_smooth", "train
                   "grad_norm_mean", "grad_norm_max", "grad_clip_frac", "epoch_time_s"]
 
 
-def init_history(path, epoch_start):
+def init_history(path, epoch_start, fields=HISTORY_FIELDS):
     """<ckpt_dir>/history.csv, one row per epoch. On resume, keep only rows before
-    epoch_start so a restarted run never carries duplicate or stale epochs."""
+    epoch_start so a restarted run never carries duplicate or stale epochs.
+    fields: the columns (train_joint.py passes its own)."""
     rows = []
     if epoch_start > 0 and os.path.exists(path):
         with open(path) as f:
             rows = [r for r in csv.DictReader(f) if int(r["epoch"]) < epoch_start]
     with open(path, "w", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=HISTORY_FIELDS)
+        w = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
         w.writeheader()
         w.writerows(rows)
 
 
-def append_history(path, row):
+def append_history(path, row, fields=HISTORY_FIELDS):
     with open(path, "a", newline="") as f:
-        csv.DictWriter(f, fieldnames=HISTORY_FIELDS).writerow(row)
+        csv.DictWriter(f, fieldnames=fields).writerow(row)
 
 
 def maybe_resume(ckpt_dir, model, optim, sched):

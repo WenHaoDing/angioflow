@@ -26,14 +26,17 @@ from angioflow.models.transformer import CotPE, RedrawProjection
 
 
 class _GeoNodeEncoder(nn.Module):
-    """Geometry-only node features: pos, normals, geo_dist + cotangent PE. No time."""
+    """Geometry-only node features: pos, normals, geo_dist + cotangent PE. No time.
+    n_bc > 0: also the per-graph boundary condition data.bc_flow_split [B, n_bc]
+    (outlet flow split), broadcast to every node -- as the WSS NodeEncoder does."""
 
     def __init__(self, n_cot, node_dim_in=6, n_geo_dist=3, dim_pe=16, dim_emb=128,
-                 pe_n_heads=2, pe_n_layers=2, pe_use_mlp=True):
+                 pe_n_heads=2, pe_n_layers=2, pe_use_mlp=True, n_bc=0):
         super().__init__()
+        self.n_bc = n_bc
         self.cot_pe = CotPE(n_cot, dim_pe=dim_pe, n_heads=pe_n_heads,
                             n_layers=pe_n_layers, use_mlp=pe_use_mlp)
-        self.lin = nn.Linear(node_dim_in + n_geo_dist, dim_emb - dim_pe)
+        self.lin = nn.Linear(node_dim_in + n_geo_dist + n_bc, dim_emb - dim_pe)
 
     def forward(self, data):
         B = int(data.batch.max()) + 1
@@ -41,8 +44,10 @@ class _GeoNodeEncoder(nn.Module):
         eigval = data.cot_eigval.view(B, k)[data.batch]
         pe = self.cot_pe(data.cot_eigvec, eigval, self.training)
         geo = data.geo_dist.nan_to_num(nan=0.0, posinf=1.0)
-        x = torch.cat([data.pos, data.normals, geo], dim=-1)
-        return torch.cat([self.lin(x), pe], dim=-1)
+        feats = [data.pos, data.normals, geo]
+        if self.n_bc:
+            feats.append(data.bc_flow_split.view(B, self.n_bc)[data.batch])   # [N, n_bc]
+        return torch.cat([self.lin(torch.cat(feats, dim=-1)), pe], dim=-1)
 
 
 class _GeoEdgeEncoder(nn.Module):
@@ -80,7 +85,7 @@ class GeoHierGPSEncoder(nn.Module):
     def __init__(self, n_cot, dim_emb=128, n_geo_dist=3, dim_pe=16, n_pre=2, n_gps=4,
                  n_pool=2, n_inter=0, pool_ratio=0.25, pool_knn_k=6, n_heads=4,
                  attn_type="performer", pe_n_heads=2, pe_n_layers=2, pe_use_mlp=True,
-                 grad_ckpt=False, bidirectional=True):
+                 grad_ckpt=False, bidirectional=True, n_bc=0):
         super().__init__()
         self.dim_emb = dim_emb
         self.n_pool = n_pool
@@ -90,7 +95,8 @@ class GeoHierGPSEncoder(nn.Module):
         self.bidirectional = bidirectional
         self.node_encoder = _GeoNodeEncoder(n_cot, dim_emb=dim_emb, n_geo_dist=n_geo_dist,
                                             dim_pe=dim_pe, pe_n_heads=pe_n_heads,
-                                            pe_n_layers=pe_n_layers, pe_use_mlp=pe_use_mlp)
+                                            pe_n_layers=pe_n_layers, pe_use_mlp=pe_use_mlp,
+                                            n_bc=n_bc)
         self.edge_encoder = _GeoEdgeEncoder(dim_emb)
 
         def _gine():

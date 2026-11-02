@@ -257,11 +257,16 @@ class _InteriorMixin:
     def _interior_frame_path(self, version, cid, t):
         return os.path.join(self.interior_dir, f"interior_{version}_{cid}_{t}.pt")
 
+    def _interior_frames(self):
+        # the frames get() can ask for: the T0 variant's chosen frames, else all n_frames --
+        # so a root holding only those frames (train_joint_hf.py's --frames download) is complete
+        return getattr(self, "_frames", None) or range(self.n_frames)
+
     def _case_complete(self, version, cid):
         return super()._case_complete(version, cid) and \
                os.path.exists(self._interior_static_path(version, cid)) and \
                all(os.path.exists(self._interior_frame_path(version, cid, t))
-                   for t in range(self.n_frames))
+                   for t in self._interior_frames())
 
     @property
     def processed_file_names(self):
@@ -269,7 +274,7 @@ class _InteriorMixin:
         # os.path.join(processed_dir, <absolute>) resolves to the absolute path
         extra = [self._interior_static_path(v, cid) for (v, cid) in self.case_keys]
         extra += [self._interior_frame_path(v, cid, t)
-                  for (v, cid) in self.case_keys for t in range(self.n_frames)]
+                  for (v, cid) in self.case_keys for t in self._interior_frames()]
         return super().processed_file_names + extra
 
     def _sample_pool(self, int_pos, wall_dist, rng):

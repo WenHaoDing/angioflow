@@ -19,6 +19,7 @@ import argparse
 import os
 import random
 import shutil
+import time
 from collections import defaultdict
 
 import numpy as np
@@ -42,7 +43,14 @@ from angioflow.transform import (CenterAndRandomRotate, InteriorSubsample,
 from angioflow.training.train import (
     _chain, _pointwise_loss, load_waveform, maybe_resume, save_ckpt, split_by_case,
     build_scheduler, apply_lr_warmup, step_scheduler, save_run_config,
+    init_history, append_history,
 )
+from angioflow.visualize.sanity import save_joint_loss_curves
+
+_LOSS_TERMS = ["loss", "logmag", "huber", "smooth", "dir", "vel", "press"]
+HISTORY_FIELDS = (["epoch"] + [f"train_{k}" for k in _LOSS_TERMS] + [f"test_{k}" for k in _LOSS_TERMS]
+                  + ["test_mse_wss", "test_mse_vel", "lr", "grad_norm_mean", "grad_norm_max",
+                     "grad_clip_frac", "epoch_time_s"])
 
 
 def add_model_args(parser):
@@ -132,6 +140,18 @@ def add_model_args(parser):
     g.add_argument("--interior_dir", default=None)
     g.add_argument("--freeze_dataset", action="store_true", default=True)
     g.add_argument("--no_freeze_dataset", dest="freeze_dataset", action="store_false")
+    g.add_argument("--add_flow_split", action="store_true",
+                   help="feed the outlet flow-split boundary condition [q_outlet0, q_outlet1] "
+                        "(<save_dir>/<tag>/flow_split.json) to the geometry encoder as a "
+                        "per-graph input, as train.py --add_flow_split does for WSS")
+    g.add_argument("--no_data_sanity", action="store_true",
+                   help="skip the dataset's startup sanity renders (outliers + normal samples, "
+                        "wall + interior). Render them separately, in parallel on the CPU: "
+                        "python -m angioflow.visualize.data_sanity --save_dir <save_dir> --workers 16")
+    g.add_argument("--max_steps", type=int, default=None,
+                   help="smoke test: stop after this many training steps (and evaluate on as many "
+                        "test batches), print per-step loss/time/GPU memory, render one sanity "
+                        "snapshot, save no checkpoints")
     return parser
 
 
@@ -156,7 +176,10 @@ def build_dataset(args, exclude_keys):
         sample_ratio=args.interior_sample_ratio, sanity_first=0,
         freeze_dataset=args.freeze_dataset, extracted=args.extracted,
         load_edge_index=False, load_grad=False,        # no physics, no interior graph
+        add_flow_split=getattr(args, "add_flow_split", False),   # absent in older runs' args
     )
+    if getattr(args, "no_data_sanity", False):
+        ds_kwargs["sanity_n_normal"] = 0          # 0 disables the dataset's sanity renders
     versions = args.versions.split(",") if args.versions else None
     if args.frames == "all":
         return AngioFlowWallInteriorDataset(**ds_kwargs)
@@ -205,11 +228,14 @@ def joint_loss(wss, query_idx, vel, press, wall, interior, args, y_mean, y_std, 
 
 
 @torch.no_grad()
-def evaluate(model, loader, waveform, device, args, y_mean, y_std, huber_delta, norm):
+def evaluate(model, loader, waveform, device, args, y_mean, y_std, huber_delta, norm,
+             max_batches=None):
     model.eval()
     acc = defaultdict(float)
     n = 0
-    for wall, interior in loader:
+    for i_batch, (wall, interior) in enumerate(loader):
+        if max_batches and i_batch >= max_batches:
+            break
         wall, interior = wall.to(device), interior.to(device)
         wss, query_idx, vel, press = model(wall, interior, waveform)
         loss, comps = joint_loss(wss, query_idx, vel, press, wall, interior, args,
@@ -241,8 +267,9 @@ def _tight_3d(ax, pts, margin=0.02):
 
 @torch.no_grad()
 def save_joint_sanity(model, wall, interior, waveform, device, norm, out_dir, epoch,
-                      max_wss=35.0, point_alpha=0.5, slab_frac=0.06, dpi=150):
-    """Both fields of one test case, pred vs GT, in a single figure:
+                      max_wss=35.0, point_alpha=0.5, slab_frac=0.06, dpi=150, n_samples=3):
+    """Both fields of each of the first n_samples test cases in the batch, pred vs GT,
+    one figure per case (joint_epoch<epoch>_s<i>.png):
 
       row 0 — WSS 3D clouds on the (cropped) wall: pred | GT | |error|;
       row 1 — |velocity| PRED: 3D cloud over faint wall points + three slab sections;
@@ -253,10 +280,6 @@ def save_joint_sanity(model, wall, interior, waveform, device, norm, out_dir, ep
     training and swallows stdout fds. 3D panels are high-dpi and tightly zoomed onto
     the cloud (_tight_3d) rather than matplotlib's default padded view.
     """
-    import matplotlib
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-
     was_training = model.training
     model.eval()
     wall, interior = wall.to(device), interior.to(device)
@@ -271,8 +294,20 @@ def save_joint_sanity(model, wall, interior, waveform, device, norm, out_dir, ep
         model.query_ratio = old_ratio
     if was_training:
         model.train()
+    for i in range(min(n_samples, wall.num_graphs)):
+        _joint_sanity_figure(wall, interior, wss_pred, vel_pred, norm, i,
+                             os.path.join(out_dir, f"joint_epoch{epoch:04d}_s{i}.png"),
+                             max_wss, point_alpha, slab_frac, dpi)
 
-    wm, im = (wall.batch == 0), (interior.batch == 0)
+
+def _joint_sanity_figure(wall, interior, wss_pred, vel_pred, norm, i, path,
+                         max_wss, point_alpha, slab_frac, dpi):
+    """save_joint_sanity's figure for graph i of the batch."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    wm, im = (wall.batch == i), (interior.batch == i)
     wp = wall.pos[wm].cpu().numpy()
     ip = interior.pos[im].cpu().numpy()
     wss_gt = norm.inverse_y(wall.y[wm]).norm(dim=-1).clamp(0, max_wss).cpu().numpy()
@@ -283,10 +318,10 @@ def save_joint_sanity(model, wall, interior, waveform, device, norm, out_dir, ep
     wmax = float(np.percentile(wss_gt, 99)) or 1.0
     vmax = float(np.percentile(vgt, 99)) or 1.0
     ext = ip.max(0) - ip.min(0)
-    os.makedirs(out_dir, exist_ok=True)
-    path = os.path.join(out_dir, f"joint_epoch{epoch:04d}.png")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
 
     fig = plt.figure(figsize=(26, 19))
+    fig.suptitle(f"{wall.version[i]}/{wall.case_id[i]}", fontsize=14)
     # row 0: WSS on the wall (3D, zoomed)
     for c, (name, mag, cmap, hi) in enumerate([("WSS pred", wss_pr, "coolwarm", wmax),
                                                ("WSS GT", wss_gt, "coolwarm", wmax),
@@ -341,8 +376,16 @@ def build_model(args, device):
         n_pool=args.n_pool, n_inter=args.n_inter, pool_ratio=args.pool_ratio,
         pool_knn_k=args.pool_knn_k, n_heads=args.n_heads, attn_type=args.attn_type,
         pe_n_heads=args.pe_n_heads, pe_n_layers=args.pe_n_layers, pe_use_mlp=args.pe_use_mlp,
-        grad_ckpt=args.grad_ckpt, bidirectional=args.bidirectional)
+        grad_ckpt=args.grad_ckpt, bidirectional=args.bidirectional,
+        n_bc=2 if getattr(args, "add_flow_split", False) else 0)
     return model.to(device)
+
+
+def _peak_gpu_gb(device):
+    if device.type != "cuda":
+        return 0.0
+    torch.cuda.synchronize(device)
+    return torch.cuda.max_memory_allocated(device) / 1e9
 
 
 def save_script_copy(ckpt_dir):
@@ -350,7 +393,9 @@ def save_script_copy(ckpt_dir):
     shutil.copy(__file__, os.path.join(ckpt_dir, os.path.basename(__file__)))
 
 
-def main(args):
+def main(args, epoch_end_hook=None):
+    """epoch_end_hook(epoch, ckpt_dir), if given, runs after each epoch's checkpoints are
+    written (train_joint_hf.py pushes the run folder to the Hub from it)."""
     device = torch.device(args.device)
     torch.manual_seed(args.seed); np.random.seed(args.seed); random.seed(args.seed)
 
@@ -410,6 +455,8 @@ def main(args):
     epoch_start, best_loss = 0, float("inf")
     if args.resume:
         epoch_start, best_loss = maybe_resume(ckpt_dir, model, optim, sched)
+    history_path = os.path.join(ckpt_dir, "history.csv")
+    init_history(history_path, epoch_start, HISTORY_FIELDS)
 
     if args.wandb:
         import wandb
@@ -417,6 +464,7 @@ def main(args):
                    config=vars(args), resume="allow", id=args.wandb_run_id)
 
     for epoch in range(epoch_start, args.total_epochs):
+        t_epoch = time.perf_counter()
         model.train()
         warming_up = apply_lr_warmup(optim, args, epoch)
         if hasattr(model, "redraw_projection"):
@@ -425,6 +473,7 @@ def main(args):
         n = 0
         gnorm_sum, gnorm_max, n_clipped, n_steps = 0.0, 0.0, 0, 0
         for wall, interior in train_loader:
+            t_step = time.perf_counter()
             wall, interior = wall.to(device), interior.to(device)
             if (torch.isnan(wall.y).any() or torch.isnan(interior.vel).any()
                     or torch.isnan(interior.press).any()):
@@ -443,17 +492,23 @@ def main(args):
             n_clipped += gnorm.item() > args.grad_clip_norm
             n_steps += 1
             optim.step()
+            if args.max_steps:
+                print(f"[step {n_steps:3d}] loss {loss.item():.4g}  {time.perf_counter() - t_step:.2f}s  "
+                      f"wall {wall.num_nodes} interior {interior.num_nodes} nodes  "
+                      f"peak GPU {_peak_gpu_gb(device):.1f} GB", flush=True)
             b = wall.num_graphs
             tr["loss"] += loss.item() * b
             for k, v in comps.items():
                 tr[k] += v * b
             n += b
+            if args.max_steps and n_steps >= args.max_steps:
+                break
         n = max(n, 1)
         gnorm_mean = gnorm_sum / max(n_steps, 1)
         clip_frac = n_clipped / max(n_steps, 1)
 
         te = evaluate(model, test_loader, waveform, device, args, y_mean, y_std,
-                      huber_delta, norm)
+                      huber_delta, norm, max_batches=args.max_steps)
         te_loss = te["loss"]
         if not warming_up:
             step_scheduler(sched, args, te_loss)
@@ -466,6 +521,24 @@ def main(args):
               f"test_mse_wss {te['mse_wss']:.4g} (Pa/s)²  test_mse_vel {te['mse_vel']:.4g} (m/s)²  "
               f"lr {lr_now:.2e}  gnorm {gnorm_mean:.3g} (max {gnorm_max:.3g}, clipped {clip_frac:.0%})",
               flush=True)
+        append_history(history_path, {
+            "epoch": epoch, **{f"train_{k}": tr[k] / n for k in _LOSS_TERMS},
+            **{f"test_{k}": te[k] for k in _LOSS_TERMS},
+            "test_mse_wss": te["mse_wss"], "test_mse_vel": te["mse_vel"], "lr": lr_now,
+            "grad_norm_mean": gnorm_mean, "grad_norm_max": gnorm_max, "grad_clip_frac": clip_frac,
+            "epoch_time_s": round(time.perf_counter() - t_epoch, 1)}, HISTORY_FIELDS)
+        try:                                              # a plotting hiccup must not kill training
+            save_joint_loss_curves(history_path, os.path.join(ckpt_dir, "sanity", "loss_curves.png"))
+        except Exception as e:
+            print(f"[sanity] loss curves failed at epoch {epoch}: {e}", flush=True)
+
+        if args.max_steps:      # also exercise the sanity renderer, but save no checkpoints
+            sw, si = next(iter(test_loader))
+            save_joint_sanity(model, sw, si, waveform, device, norm,
+                              os.path.join(ckpt_dir, "sanity"), epoch, max_wss=args.max_wss)
+            print(f"[smoke] {n_steps} step(s) + {args.max_steps} test batch(es) done; peak GPU "
+                  f"{_peak_gpu_gb(device):.1f} GB; no checkpoints saved")
+            return
 
         if args.wandb:
             wandb.log({**{f"train_{k}": v / n for k, v in tr.items()},
@@ -492,6 +565,8 @@ def main(args):
             best_loss = te_loss
             save_ckpt(ckpt_best, model, optim, sched, epoch, best_loss, args)
             print(f"  ↳ new best @ epoch {epoch} (test_loss={best_loss:.4g})")
+        if epoch_end_hook is not None:
+            epoch_end_hook(epoch, ckpt_dir)
 
     if args.wandb:
         wandb.finish()
