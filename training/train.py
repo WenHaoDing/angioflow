@@ -29,12 +29,40 @@ from angioflow.config.defaults import (
     add_schedule_args,
 )
 from angioflow.config.models import get_model_config, MODEL_REGISTRY
+from angioflow.data.dataset_tags import DATASET_TAGS, normalize_tag
 from angioflow.data.datasets import AngioFlowWallDataset, load_excluded_keys
 from angioflow.data.datasets_t0 import AngioFlowWallDatasetT0
 from angioflow.data.normalize import load_or_compute_stats
 from angioflow.losses import log_mag_loss, tv_smooth_loss, directional_loss
 from angioflow.transform import AneurysmCrop, CenterAndRandomRotate, PosYNormalize, SymmetrizeEdges
 from angioflow.visualize.sanity import save_loss_curves, save_wss_sanity
+
+
+def add_exclude_cases_arg(p):
+    p.add_argument("--exclude_cases", default="",
+                   help="comma-separated cases to leave out of train AND test, as <case> (any "
+                        "dataset) or <tag>/<case>, e.g. C0064_cut2 -- on top of the anomaly "
+                        "lists, and applied even with --no_exclude_anomalies")
+
+
+def excluded_case_keys(args):
+    """(tag, case) keys to drop: the anomaly lists in save_dir (--exclude_anomalies) plus
+    --exclude_cases. A bare <case> matches every dataset that has it (extracted roots are
+    checked on disk; source roots, and a Job's save_dir read back from args.json on another
+    machine, get every tag); a name matching nothing aborts, so a typo can't silently
+    leave the case in."""
+    keys = load_excluded_keys(args.save_dir) if args.exclude_anomalies else set()
+    for name in filter(None, (s.strip() for s in getattr(args, "exclude_cases", "").split(","))):
+        tag, sep, cid = name.rpartition("/")
+        cand = [(normalize_tag(tag), cid)] if sep else [(t, cid) for t in DATASET_TAGS]
+        if getattr(args, "extracted", False) and os.path.isdir(args.save_dir):
+            cand = [(t, c) for t, c in cand
+                    if os.path.exists(os.path.join(args.save_dir, t, f"static_{t}_{c}.pt"))]
+        if not cand:
+            raise SystemExit(f"[exclude] --exclude_cases {name}: no such case under {args.save_dir}")
+        print(f"[exclude] --exclude_cases: {', '.join(f'{t}/{c}' for t, c in cand)}")
+        keys.update(cand)
+    return keys
 
 
 def _chain(*transforms):
@@ -286,6 +314,7 @@ def get_args():
                    help="smoke test: stop after this many training steps (and evaluate on as many "
                         "test batches), print per-step loss/time/GPU memory, render one sanity "
                         "snapshot, save no checkpoints")
+    add_exclude_cases_arg(p)
     args = p.parse_args()
     if args.add_flow_split and args.model != "hierarchical_gps":
         p.error("--add_flow_split is only wired into hierarchical_gps")
@@ -302,7 +331,7 @@ def main(args, epoch_end_hook=None):
     device = torch.device(args.device)
     torch.manual_seed(args.seed); np.random.seed(args.seed); random.seed(args.seed)
 
-    exclude_keys = load_excluded_keys(args.save_dir) if args.exclude_anomalies else set()
+    exclude_keys = excluded_case_keys(args)
     versions = args.versions.split(",") if args.versions else None
     ds_kwargs = dict(
         case_root_angioflow=args.case_root_angioflow,

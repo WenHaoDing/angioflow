@@ -30,8 +30,6 @@ from torch_geometric.loader import DataLoader
 
 from angioflow.config.defaults import (add_data_args, add_encoder_args, add_optim_args,
                                        add_schedule_args, add_misc_args)
-from angioflow.data.dataset_tags import DATASET_TAGS, normalize_tag
-from angioflow.data.datasets import load_excluded_keys
 from angioflow.data.datasets_interior import (AngioFlowWallInteriorDataset,
                                               AngioFlowWallInteriorDatasetT0)
 from angioflow.data.normalize import load_or_compute_stats
@@ -44,7 +42,7 @@ from angioflow.transform import (CenterAndRandomRotate, InteriorSubsample,
 from angioflow.training.train import (
     _chain, _pointwise_loss, load_waveform, maybe_resume, save_ckpt, split_by_case,
     build_scheduler, apply_lr_warmup, step_scheduler, save_run_config,
-    init_history, append_history,
+    init_history, append_history, add_exclude_cases_arg, excluded_case_keys,
 )
 from angioflow.visualize.sanity import save_joint_loss_curves
 
@@ -145,10 +143,7 @@ def add_model_args(parser):
                    help="feed the outlet flow-split boundary condition [q_outlet0, q_outlet1] "
                         "(<save_dir>/<tag>/flow_split.json) to the geometry encoder as a "
                         "per-graph input, as train.py --add_flow_split does for WSS")
-    g.add_argument("--exclude_cases", default="",
-                   help="comma-separated cases to leave out of train AND test, as <case> (any "
-                        "dataset) or <tag>/<case>, e.g. C0064_cut2 -- on top of the anomaly "
-                        "lists, and applied even with --no_exclude_anomalies")
+    add_exclude_cases_arg(g)
     g.add_argument("--no_data_sanity", action="store_true",
                    help="skip the dataset's startup sanity renders (outliers + normal samples, "
                         "wall + interior). Render them separately, in parallel on the CPU: "
@@ -169,25 +164,6 @@ def get_args():
     # first xf run) while 3e-4 learns cleanly (single-batch overfit: 0.92 -> 0.09)
     p.set_defaults(wandb_project="AngioFlowJoint", lr=3e-4)
     return p.parse_args()
-
-
-def excluded_case_keys(args):
-    """(tag, case) keys to drop: the anomaly lists in save_dir (--exclude_anomalies) plus
-    --exclude_cases. A bare <case> matches every dataset that has it (extracted roots are
-    checked on disk; source roots get every tag); a name matching nothing aborts, so a
-    typo can't silently leave the case in."""
-    keys = load_excluded_keys(args.save_dir) if args.exclude_anomalies else set()
-    for name in filter(None, (s.strip() for s in getattr(args, "exclude_cases", "").split(","))):
-        tag, sep, cid = name.rpartition("/")
-        cand = [(normalize_tag(tag), cid)] if sep else [(t, cid) for t in DATASET_TAGS]
-        if getattr(args, "extracted", False):
-            cand = [(t, c) for t, c in cand
-                    if os.path.exists(os.path.join(args.save_dir, t, f"static_{t}_{c}.pt"))]
-        if not cand:
-            raise SystemExit(f"[exclude] --exclude_cases {name}: no such case under {args.save_dir}")
-        print(f"[exclude] --exclude_cases: {', '.join(f'{t}/{c}' for t, c in cand)}")
-        keys.update(cand)
-    return keys
 
 
 def build_dataset(args, exclude_keys):

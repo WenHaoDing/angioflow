@@ -67,13 +67,14 @@ import numpy as np
 import torch
 from torch_geometric.data import Batch
 
-from angioflow.data.datasets import AngioFlowWallDataset, load_excluded_keys
+from angioflow.data.datasets import AngioFlowWallDataset
 from angioflow.data.datasets_t0 import AngioFlowWallDatasetT0
 from angioflow.data.gradient_verification.verify_interior_gradients import _safe_filename
 from angioflow.data.normalize import load_or_compute_stats
 from angioflow.training.eval_interior import select_eval_cases
 from angioflow.training.eval_leaderboard import load_existing_run_summary, upsert_leaderboard
-from angioflow.training.train import _chain, _unpack_pred, get_model, load_waveform, split_by_case
+from angioflow.training.train import (_chain, _unpack_pred, excluded_case_keys, get_model,
+                                     load_waveform, split_by_case)
 from angioflow.transform import AneurysmCrop, CenterAndRandomRotate, PosYNormalize, SymmetrizeEdges
 from angioflow.visualize.sanity import _make_surface_mesh
 
@@ -297,8 +298,7 @@ def main():
     chk = torch.load(ckpt_path, map_location=device, weights_only=False)
     train_args = argparse.Namespace(**chk["args"])
 
-    exclude_keys = load_excluded_keys(train_args.save_dir) if train_args.exclude_anomalies else set()
-    dataset = build_dataset(train_args, exclude_keys)
+    dataset = build_dataset(train_args, excluded_case_keys(train_args))
     train_idx, test_idx = split_by_case(dataset, train_args.train_frac, seed=train_args.seed)
     print(f"[data] {len(dataset)} samples  train={len(train_idx)}  test={len(test_idx)}")
 
