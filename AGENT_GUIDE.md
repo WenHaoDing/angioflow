@@ -211,10 +211,15 @@ cd "/media/yaplab2/HDD Storage/wenhao" && ~/miniconda3/envs/new/bin/python -m an
 
 ## Known pitfalls
 
-- **cuSPARSE crash, fixed in `18d1601`.**
-  - **Symptom:** on large batches, `k_hop_edges`' sparse matrix multiply corrupted GPU memory, and a later GATv2 gather hit `indexSelectLargeIndex ... srcIndex < srcSelectDimSize`.
-  - **Fix:** the hop products now run on the CPU, at about 0.08 s for a worst-case batch.
-  - **If that assert comes back:** suspect GPU memory corruption from an earlier kernel before blaming the data. Replay the failing call in a fresh process to tell the two apart.
+- **Local GPU 1 has faulty VRAM; don't train on it.**
+  - **Symptom:** big runs hit a deterministic `indexSelectLargeIndex ... srcIndex < srcSelectDimSize` assert in the decoder's GATv2 gather, even though the inputs were valid. Replaying the batch in a fresh process was clean, because the replay never allocated far enough into memory to reach the bad block.
+  - **Cause:** hardware. A VRAM pattern test found bit errors about 12.5 GB into GPU 1's memory.
+  - **Wrong turn:** commit `18d1601` blamed cuSPARSE and moved the `k_hop_edges` hop products to the CPU.
+  - **If that assert comes back:** run a VRAM pattern test on that GPU before blaming the code or data.
+- **Host-RAM leak in `k_hop_edges`, fixed.**
+  - **Symptom:** joint runs were OOM-killed after a few hours, both locally and on HF (exit 137, `OOMKilled`). The main process grew by about 14 GB/h.
+  - **Cause:** the CPU sparse-CSR matrix multiply (`EdgeIndex.matmul`) that `18d1601` introduced leaks host RAM, about 7.5 MB per call.
+  - **Fix:** `k_hop_edges` now uses plain index operations on the graph's own device. It is edge-for-edge identical to the old version, takes about 10 ms per call on the GPU, and doesn't leak.
 - **Stale extraction outputs.** The extraction Jobs skip cases already in uploaded parts, so a re-exported case keeps its old output. See "Things to know" in `UPDATING_CFD_CASES.md`.
 - **Old tables after re-registration.** After a registration changes, `flow_split.json` must be regenerated. An old table silently gives the wrong outlet order for cases whose outlets were relabelled.
 - **Stats after data changes.** The stats in `_meta/` must be recomputed and re-uploaded whenever the training data changes.

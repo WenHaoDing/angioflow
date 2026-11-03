@@ -157,6 +157,11 @@ def get_args():
     p.add_argument("--n_render", type=int, default=None,
                    help="with --full_test_set: render only this many seeded-random cases per "
                         "version (metrics still cover every case); default: render all")
+    p.add_argument("--save_dir", default=None,
+                   help="data root to evaluate on instead of the checkpoint's (a run trained on "
+                        "an HF Job saved /tmp/angioflow_hf/data), e.g. the local AngioFlow-PyG root")
+    p.add_argument("--waveform_path", default=None,
+                   help="inlet waveform instead of the checkpoint's path (same reason)")
     return p.parse_args()
 
 
@@ -297,6 +302,10 @@ def main():
 
     chk = torch.load(ckpt_path, map_location=device, weights_only=False)
     train_args = argparse.Namespace(**chk["args"])
+    for key in ("save_dir", "waveform_path"):
+        if getattr(args, key):
+            print(f"[eval] {key}: {getattr(train_args, key)} -> {getattr(args, key)}")
+            setattr(train_args, key, getattr(args, key))
 
     dataset = build_dataset(train_args, excluded_case_keys(train_args))
     train_idx, test_idx = split_by_case(dataset, train_args.train_frac, seed=train_args.seed)

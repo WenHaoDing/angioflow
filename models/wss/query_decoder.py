@@ -27,7 +27,6 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 from torch.nn import LayerNorm, Linear, ModuleList, ReLU, Sequential
-from torch_geometric import EdgeIndex
 from torch_geometric.nn import GATv2Conv
 from torch_geometric.utils import coalesce, remove_self_loops, scatter, to_dense_batch, to_undirected
 
@@ -51,25 +50,26 @@ def k_hop_edges(edge_index, num_nodes, k):
     ever gathers from the half of its real neighbours where it happens to be the larger
     index, and the "1-hop" base case would itself already be wrong (degree ~3 instead of
     the true ~6 for a closed triangulated surface)."""
-    edge_index = to_undirected(edge_index, num_nodes=num_nodes)
+    edge_index = to_undirected(edge_index, num_nodes=num_nodes)   # coalesced: sorted by row
     if k <= 1:
         return coalesce(edge_index, num_nodes=num_nodes)
-    # The hop products run on the CPU: on CUDA, EdgeIndex.matmul is a cuSPARSE CSR SpGEMM
-    # (torch 2.4, "beta"), which on large batches (~57k-node walls, 3 datasets, crop up
-    # to 0.25) corrupted GPU memory -- a later, unrelated GATv2 gather then hit a
-    # device-side index assert, deterministically at step 13 of epoch 0 (2026-11-02).
-    # Same result either way; the CPU cost is small next to a training step.
-    device = edge_index.device
-    edge_index = edge_index.cpu()
-    ei = EdgeIndex(edge_index, sparse_size=(num_nodes, num_nodes)).sort_by("row")[0]
-    cur = ei
-    all_edges = edge_index
+    # Hop products as plain index ops (extend every walk i->j by each base edge j->m), not
+    # EdgeIndex.matmul: its CPU sparse-CSR SpGEMM leaks host RAM (~7.5 MB per call on a
+    # 50k-node grid, torch 2.4 and 2.7), which OOM-killed joint runs after a few hours
+    # (2026-11-02); the CUDA path is cuSPARSE "beta". Same edge set as the matmul version.
+    row, col = edge_index
+    ptr = torch.zeros(num_nodes + 1, dtype=torch.long, device=row.device)
+    ptr[1:] = torch.cumsum(torch.bincount(row, minlength=num_nodes), 0)
+    cur = all_edges = edge_index
     for _ in range(k - 1):
-        cur = cur.matmul(ei)[0].as_tensor()
-        cur, _ = remove_self_loops(cur)
+        deg = ptr[cur[1] + 1] - ptr[cur[1]]
+        first = torch.cumsum(deg, 0) - deg                      # each walk's first slot
+        slot = torch.arange(int(deg.sum()), device=row.device) - first.repeat_interleave(deg)
+        nxt = col[ptr[cur[1]].repeat_interleave(deg) + slot]
+        cur, _ = remove_self_loops(torch.stack([cur[0].repeat_interleave(deg), nxt]))
+        cur = coalesce(cur, num_nodes=num_nodes)
         all_edges = torch.cat([all_edges, cur], dim=1)
-        cur = EdgeIndex(cur, sparse_size=(num_nodes, num_nodes)).sort_by("row")[0]
-    return coalesce(all_edges, num_nodes=num_nodes).to(device)
+    return coalesce(all_edges, num_nodes=num_nodes)
 
 
 def query_local_edges(edge_index, query_idx, n_full):
