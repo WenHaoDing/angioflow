@@ -2,3 +2,4 @@ AneuG/
 __pycache__/
 *.pyc
 debugging/meshing
+deploy/sanity/

@@ -134,6 +134,58 @@ cd "/media/yaplab2/HDD Storage/wenhao" && ~/miniconda3/envs/new/bin/python -m an
   - velocity and pressure at the sampled interior points. Pressure is shifted so its per-case maximum is 0.
 - **Split:** 80/20 by case within each dataset, seed 0.
 
+### Aneurysm types
+
+`aneurysm_type` is stored in every case's static as a scalar. It's never a model input.
+
+| Type | Geometry | Outlets | Cases (AngioFlow / AneuG-Flow / AneuGv2) |
+|---|---|---|---|
+| 0 | Bifurcation aneurysm | 2 | 316 / 634 / 299 |
+| 1 | Sidewall aneurysm | 1 (3 AngioFlow cases have 2) | 201 / 0 / 290 |
+| 2 | Sidewall aneurysm with a bifurcation just downstream of the dome. The simulation kept both downstream branches, so it has two outlets. | 2 (2 cases have 1) | 89 / 0 / 0 |
+
+### How much vessel the model sees around the aneurysm
+
+**How the crop works:** the model never sees a whole training mesh. Each sample is cropped to the aneurysm's focused region (`node_type == 1`) plus a band of vessel around it. The band's depth is drawn at random for every sample, from no band at all up to 25% of the mesh's largest geodesic distance from the focused region (`--mask_low 0 --mask_high 0.25`).
+
+**How it was measured:** [deploy/centerline_crop_stats.py](deploy/centerline_crop_stats.py) runs vmtk centerlines on all 606 AngioFlow CFD wall meshes, the real-patient set. It measures vessel length along the centerline, starting from the point next to the aneurysm (the centerline point nearest the dome apex):
+- **upstream:** toward the inlet;
+- **downstream:** out along each outlet branch.
+
+Values are median [10th–90th percentile]. D is the vessel diameter at that end: the parent artery for upstream, the branch for downstream.
+
+| Type | | Whole mesh | Cropped, smallest band | Cropped, typical | Cropped, largest band |
+|---|---|---|---|---|---|
+| 0 | upstream | 19.3 mm [13.2, 23.9], 6.7 D | 7.2 mm, 2.6 D | 8.2 mm [5.0, 11.9], 3.0 D | 9.5 mm, 3.5 D |
+| 0 | downstream | 10.6 mm [7.7, 13.0], 5.6 D | 5.2 mm, 2.8 D | 6.2 mm [3.3, 9.0], 3.3 D | 7.6 mm, 4.0 D |
+| 1 | upstream | 21.0 mm [12.8, 27.4], 5.5 D | 7.0 mm, 1.9 D | 8.2 mm [4.5, 14.1], 2.3 D | 10.3 mm, 2.8 D |
+| 1 | downstream | 13.7 mm [10.5, 19.8], 4.4 D | 6.5 mm, 2.0 D | 7.6 mm [3.7, 12.0], 2.4 D | 9.6 mm, 2.9 D |
+| 2 | upstream | 18.0 mm [13.8, 23.2], 5.0 D | 7.6 mm, 2.2 D | 8.8 mm [5.3, 13.4], 2.5 D | 10.2 mm, 2.8 D |
+| 2 | downstream | 14.4 mm [10.3, 20.1], 6.0 D | 9.4 mm, 4.1 D | 10.6 mm [6.5, 17.1], 4.6 D | 11.8 mm, 5.2 D |
+
+"Typical" pools every band depth training draws.
+
+**Vessel sizes (median):**
+
+| Type | Parent diameter | Branch diameter | Dome height |
+|---|---|---|---|
+| 0 | 2.6 mm | 1.9 mm | 4.9 mm |
+| 1 | 3.9 mm | 3.3 mm | 6.0 mm |
+| 2 | 3.5 mm | 2.3 mm | 6.7 mm |
+
+**Clipping a new mesh for deployment** ([deploy/JOINT_VELOCITY_HANDOFF.md](deploy/JOINT_VELOCITY_HANDOFF.md)):
+- Clip it to the **whole-mesh** extent for its type: about 5–7 parent diameters upstream and 4–6 branch diameters downstream.
+- Don't clip it to the cropped extent. The deploy code applies the training crop itself, and the band's depth scales with the mesh's own size. So a mesh clipped like the training meshes ends up with a training-like crop.
+- A much longer or much shorter mesh changes what the model sees.
+
+**Outputs** are in `/media/yaplab2/wd8tb/wenhao/datasets/AngioFlow-PyG_centerlines/`:
+- `centerline_crop_stats.txt`: the summary, with intermediate band depths;
+- `centerline_crop_stats.json`: per-case and per-path numbers;
+- `centerline/`: vmtk paths;
+- `sanity/`: renders.
+
+The extraction was stopped after 276 of the 634 AneuG-Flow cases, because only AngioFlow is needed. The script can resume it with `--datasets aneug_flow aneugv2`.
+
 ### Run folder
 
 In `<ckpt_root>/<run_name>/`:
@@ -208,6 +260,7 @@ cd "/media/yaplab2/HDD Storage/wenhao" && ~/miniconda3/envs/new/bin/python -m an
 | `data/generate_flow_split.py` | Rebuild `flow_split.json` from a local root: `--root <root> --datasets angioflow aneugv2`. Then upload it to `flow_split/<tag>/flow_split.json` on AngioFlow-PyG |
 | `huggingface/render_sanity_hf.py` | PyVista sanity renders (registration, geo_dist, WSS and velocity GIFs) as a uv Job, written to `sanity/<case>/` of the source dataset |
 | [data/UPDATING_CFD_CASES.md](data/UPDATING_CFD_CASES.md) | Full pipeline from re-exported CFD cases to new training data: registration, wall statics, extraction Jobs, assembly, download, flow split |
+| [deploy/JOINT_VELOCITY_HANDOFF.md](deploy/JOINT_VELOCITY_HANDOFF.md) | Run the joint model on a new vessel surface (e.g. from a segmentation) to get velocity: `deploy/joint_velocity.py`. The other `deploy/` scripts are for an older model and data format. |
 
 ## Known pitfalls
 
