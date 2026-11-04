@@ -262,6 +262,19 @@ cd "/media/yaplab2/HDD Storage/wenhao" && ~/miniconda3/envs/new/bin/python -m an
 | [data/UPDATING_CFD_CASES.md](data/UPDATING_CFD_CASES.md) | Full pipeline from re-exported CFD cases to new training data: registration, wall statics, extraction Jobs, assembly, download, flow split |
 | [deploy/JOINT_VELOCITY_HANDOFF.md](deploy/JOINT_VELOCITY_HANDOFF.md) | Run the joint model on a new vessel surface (e.g. from a segmentation) to get velocity: `deploy/joint_velocity.py`. The other `deploy/` scripts are for an older model and data format. |
 
+### Preparing a new surface (deployment)
+
+`deploy/joint_velocity.prepare_surface` turns an MRI or segmentation surface into the model's input in three steps:
+
+1. **Smooth** (on by default) with AneuG's mesh regularizer. This is the **dome-normalized** variant, `AneuG/mesh_regularizer/dome_normalized.py`, with the reference model `reference_models/reference_roughness__domenorm6.15__t0.3-…-1.65__g2.npz`; that's the model to use, not the older mm-based ones.
+   - **Needs:** the sac size (`sac_mm`, or `sac_points` to measure it from) and the AneuG repo importable as `AneuG`.
+   - **Time:** 1–4 min per case. `smooth_time_budget_s` caps it; `None` runs to convergence, which is fine for offline batches.
+   - **Turn off** with `smooth=False` for meshes that are already CFD-smooth.
+2. **Remesh** to the 0.12 mm training edge with pymeshlab.
+3. **Compute the wall features** with the training pipeline's own functions.
+
+Clip the surface first, using the centerline statistics under "How much vessel the model sees around the aneurysm". Details and checks are in [deploy/JOINT_VELOCITY_HANDOFF.md](deploy/JOINT_VELOCITY_HANDOFF.md).
+
 ## Known pitfalls
 
 - **Local GPU 1 has faulty VRAM; don't train on it.**

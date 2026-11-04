@@ -18,8 +18,9 @@ The joint graph model predicts WSS, velocity and pressure together. You only nee
 ## Environment
 
 - Use the conda env `new`, with the parent of the `angioflow/` repo on `PYTHONPATH`.
+- The smoothing step needs the AneuG repo importable as `AneuG` (its `mesh_regularizer` package). The `vessel-conditioned` branch, next to `angioflow/`, works.
 - Use any free GPU except 1 and 2. GPU 1 has faulty memory and GPU 2 overheats. CPU also works, more slowly.
-- **Speed:** one case takes about 1 s to prepare, 1–2 s to predict, and 10–15 s more when `predict` samples the lumen points itself.
+- **Speed:** without smoothing, one case takes about 1–7 s to prepare and 1–2 s to predict, plus 10–15 s when `predict` samples the lumen points itself. Smoothing adds 1–4 min per case; cap it with `smooth_time_budget_s`.
 
 ## What you must provide
 
@@ -36,7 +37,9 @@ The joint graph model predicts WSS, velocity and pressure together. You only nee
 
 2. **`focused_mask`:** a per-vertex boolean array on your input mesh marking the aneurysm sac and dome. In training this region came from a clipped reconstruction and covered about half the surface. The crop, and so where velocity is predicted, is grown from this region.
 
-3. **`inlet_point`** and **`outlet_points`** (`[p0]` or `[p0, p1]`): a point near each opening, in the same units. Each point picks the opening whose rim centroid is nearest. Your order decides which outlet is outlet_0. That order fixes the geodesic columns and the flow split, so keep it consistent.
+3. **The sac size**, for smoothing: either `sac_mm`, or `sac_points` (`[M, 3]` in your units: dome surface vertices, or voxel centres of the aneurysm label). The size is the sac's longest extent along its own principal axes, the same measure AneuG's `get_dome_ImperialNHS.py` writes as `max_extent_mm`. It isn't needed with `smooth=False`.
+
+4. **`inlet_point`** and **`outlet_points`** (`[p0]` or `[p0, p1]`): a point near each opening, in the same units. Each point picks the opening whose rim centroid is nearest. Your order decides which outlet is outlet_0. That order fixes the geodesic columns and the flow split, so keep it consistent.
 
 ## Use
 
@@ -45,8 +48,11 @@ from angioflow.deploy.joint_velocity import JointVelocityPredictor, prepare_surf
 
 pred = JointVelocityPredictor.from_bundle(BUNDLE, device="cuda:0")
 surf = prepare_surface(verts_mm, faces, units="mm", inlet_point=inlet_mm,
-                       outlet_points=[out0_mm, out1_mm], focused_mask=sac_mask,
-                       remesh=True)   # remesh to 0.12 mm, the training density
+                       outlet_points=[out0_mm, out1_mm], focused_mask=focus_mask,
+                       sac_points=dome_mm,             # or sac_mm=<longest sac span, mm>
+                       smooth=True,                    # default: AneuG mesh regularizer
+                       smooth_time_budget_s=None)      # None = run to convergence
+print(surf.report["smoothing"])   # status, rounds, sac_span_mm, how far the surface moved
 print(surf.report)          # nodes, edge_mm, area_mm2, extent_mm, openings: compare with the table
 out = pred.predict(surf)    # samples lumen points itself
 # out.points [Q,3] mm (your frame), out.velocity [Q,3] m/s
@@ -66,7 +72,8 @@ This is the same recipe that built the training data, calling the same functions
 
 | Step | Detail |
 |---|---|
-| Remesh | pymeshlab isotropic remeshing, 0.12 mm target edge. `focused_mask` is moved to the new vertices by nearest neighbour. Openings are found as boundary loops: the inlet rim is labelled `node_type` 2 and the outlet rims 3 and 4. |
+| Smooth (`smooth=True`, default) | AneuG's dome-normalized mesh regularizer (`mesh_regularizer/dome_normalized.py`, reference model `domenorm6.15`). It scales the shape so its sac matches the 6.15 mm reference sac, then smooths voxel-scale roughness toward the reference tissue with shrinkage compensation and the openings frozen, then scales back. `report["smoothing"]["status"]` is `converged`, `stalled_at_overshoot_limit` (as smooth as it can get without over-smoothing another scale; also fine) or `time_budget_exceeded`. Set `smooth=False` for surfaces that are already CFD-smooth. |
+| Remesh | pymeshlab isotropic remeshing, 0.12 mm target edge. This always runs after smoothing. `focused_mask` is moved to the new vertices by nearest neighbour. Openings are found as boundary loops: the inlet rim is labelled `node_type` 2 and the outlet rims 3 and 4. |
 | `pos` | Metres, minus the mesh mean. |
 | `normals` | pyvista vertex normals, auto-oriented outward. |
 | `geo_dist [N,3]` | Mesh-edge geodesic distance to the inlet, outlet 0 and outlet 1, each scaled to [0, 1]. A missing outlet is filled with 1. |
@@ -88,4 +95,14 @@ This is the same recipe that built the training data, calling the same functions
 | Remeshed wall | 0.405 median, against 0.390 unremeshed at the same points. The remeshed edge is 0.12 mm. |
 | Sanity renders | `deploy/sanity/<case>_cfd_mesh.png` (CFD points, with CFD and error rows) and `<case>_deploy.png` (remeshed wall plus sampled lumen points: the path a new patient takes). |
 
-None of this has been tested on a real segmentation surface: every input was a CFD wall mesh. Check `surf.report` against the table above, and look at `out.velocity`. Peak |v| was about 0.7–0.8 m/s on the test cases.
+**Smoothing, on a mock MRI surface:** three test cases' CFD walls were remeshed to 0.45 mm edges and given 0.08 mm of normal noise, then velocity was scored at the CFD points.
+
+| Case | CFD wall | Mock MRI, `smooth=False` | Mock MRI, `smooth=True` |
+|---|---|---|---|
+| SUx0YKpq4K | 0.377 | 0.398 | 0.385 |
+| NnimNakgLG | 0.441 | 0.474 | 0.473 |
+| p359 | 0.380 | 0.430 | 0.376 |
+
+The smoothing moved the surface by at most 0.2–0.3 mm and took 75–220 s per case. Before/after renders are in `deploy/sanity/smoothing/`.
+
+Nothing has been tested on a real segmentation surface yet: every input here started from a CFD wall mesh. Check `surf.report` against the table above, and look at `out.velocity`. Peak |v| was about 0.7–0.8 m/s on the test cases.

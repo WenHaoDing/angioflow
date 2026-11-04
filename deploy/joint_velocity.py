@@ -8,10 +8,13 @@ frame 0 of the training inlet waveform.
     from angioflow.deploy.joint_velocity import JointVelocityPredictor, prepare_surface
     pred = JointVelocityPredictor.from_bundle("joint_velocity_bundle.pt", device="cuda:0")
     surf = prepare_surface(verts_mm, faces, units="mm", inlet_point=inlet_xyz_mm,
-                           outlet_points=[out0_xyz_mm, out1_xyz_mm], focused_mask=sac_mask)
+                           outlet_points=[out0_xyz_mm, out1_xyz_mm], focused_mask=focus_mask,
+                           sac_points=dome_xyz_mm)      # smooths (AneuG regularizer) + remeshes
     out = pred.predict(surf)            # out.points [Q,3] (input units), out.velocity [Q,3] m/s
 
 This replaces deploy/mesh_to_graph.py for the current data format (AngioFlow-PyG, v3):
+MRI surfaces are first smoothed with AneuG's dome-normalized mesh regularizer (optional,
+default on; needs the AneuG repo importable as `AneuG`), then remeshed to the training edge;
 the wall features are computed with the SAME functions that built the training data --
 cot_mass_eigs (generalized L v = lam M v, made dimensionless by A/4pi as the dataset does),
 pyvista normals, per-opening geodesics, the (d0/d1)^2.45 flow-split rule -- not copies.
@@ -87,6 +90,34 @@ def remesh_isotropic(vertices_mm, faces, target_edge_mm=TRAINING_MESH["edge_mm"]
     return np.asarray(m.vertex_matrix(), np.float64), np.asarray(m.face_matrix(), np.int64)
 
 
+def sac_span_mm(points_mm):
+    """Aneurysm sac size as the dome-normalized regularizer defines it: the longest extent
+    along the points' own principal axes (dome surface vertices or dome-label voxel centres)."""
+    from AneuG.mesh_regularizer.dome_normalized import pca_span
+    return pca_span(np.asarray(points_mm, np.float64))
+
+
+def regularize_surface(vertices_mm, faces, sac_mm, time_budget_s=None, **kwargs):
+    """Dome-normalized roughness regularization (AneuG mesh_regularizer.dome_normalized, the
+    domenorm6.15 reference model): MRI/segmentation surfaces carry voxel-scale noise the CFD
+    training walls do not have. The shape is scaled so its sac matches the 6.15 mm reference
+    sac, smoothed toward the reference roughness with shrinkage compensation and the openings
+    frozen, then scaled back. Same settings as `python -m mesh_regularizer.dome_normalized run`
+    (no export remesh -- prepare_surface remeshes to the training edge afterwards).
+    time_budget_s: wall-clock limit per case (None = no limit, ~1-3 min on a training-size
+    case); when hit, report["status"] is "time_budget_exceeded" and the mesh smoothed so far
+    is returned. Returns (vertices_mm, faces, report)."""
+    import trimesh
+    from AneuG.mesh_regularizer.dome_normalized import DomeNormalizedRegularizer
+    opts = dict(export_edge=None, time_budget_s=time_budget_s, n_seeds=4000, verbose=False)
+    opts.update(kwargs)
+    reg = DomeNormalizedRegularizer(**opts)
+    out, report = reg.forward(trimesh.Trimesh(np.asarray(vertices_mm, np.float64),
+                                              np.asarray(faces, np.int64), process=False),
+                              float(sac_mm), freeze_boundary=True)
+    return np.asarray(out.vertices, np.float64), np.asarray(out.faces, np.int64), report
+
+
 def mesh_report(vertices_m, faces):
     """Numbers to compare against TRAINING_MESH."""
     p, f = np.asarray(vertices_m) * 1e3, np.asarray(faces)
@@ -130,7 +161,9 @@ class PreparedSurface:
 
 
 def prepare_surface(vertices, faces, units="mm", inlet_point=None, outlet_points=None,
-                    focused_mask=None, remesh=True, target_edge_mm=TRAINING_MESH["edge_mm"], lap_k=8):
+                    focused_mask=None, smooth=True, sac_mm=None, sac_points=None,
+                    smooth_time_budget_s=None, smooth_kwargs=None, remesh=True, target_edge_mm=TRAINING_MESH["edge_mm"],
+                    lap_k=8):
     """Raw open lumen surface -> PreparedSurface.
 
     vertices [N, 3] in `units` ('mm' for image/DICOM space), faces [F, 3] triangles.
@@ -139,9 +172,16 @@ def prepare_surface(vertices, faces, units="mm", inlet_point=None, outlet_points
     outlet_points [[3]] or [[3], [3]]: a point near outlet_0 (and outlet_1), same rule. The
         order is the caller's: it fixes which outlet is outlet_0 in geo_dist and flow_split.
     focused_mask [N] bool on the INPUT vertices: the aneurysm focused region (sac/dome, as
-        clipped_reconstruction.ply marked it in training). Mapped onto the remeshed vertices.
-    remesh: isotropic remesh to target_edge_mm first (do this for anything not already a
-        ~0.12 mm CFD-style mesh -- segmentation surfaces are much coarser and rougher).
+        clipped_reconstruction.ply marked it in training). Mapped onto the final vertices.
+    smooth: dome-normalized roughness regularization first (regularize_surface) -- default on,
+        for MRI/segmentation surfaces. Needs the sac size: sac_mm (longest PCA span of the
+        sac, mm) or sac_points [M, 3] in `units` (dome vertices or dome-label voxel centres)
+        to measure it from. smooth_time_budget_s caps the smoothing wall-clock time per case
+        (None = run to convergence, typically 1-3 min). smooth_kwargs go to
+        DomeNormalizedRegularizer (e.g.
+        tolerance, stopping="relaxed"). Turn it off for meshes already CFD-smooth.
+    remesh: isotropic remesh to target_edge_mm (the training density). Always applied after
+        smoothing, whose own internal remesh is at a sac-dependent edge.
     """
     to_m = UNIT_TO_M[units] if isinstance(units, str) else float(units)
     v = np.asarray(vertices, np.float64)
@@ -150,13 +190,21 @@ def prepare_surface(vertices, faces, units="mm", inlet_point=None, outlet_points
         raise ValueError("focused_mask, inlet_point and outlet_points are required (the crop "
                          "and the boundary conditions depend on them)")
     focused_mask = np.asarray(focused_mask, bool)
-    if remesh:
-        v_mm, f = remesh_isotropic(v * to_m * 1e3, f, target_edge_mm)
-        nn = cKDTree(v * to_m * 1e3).query(v_mm)[1]       # new vertex -> nearest input vertex
-        focused_mask = focused_mask[nn]
-        pos = v_mm * 1e-3
-    else:
-        pos = v * to_m
+    v_in_mm = v * to_m * 1e3
+    v_mm, smooth_report = v_in_mm, None
+    if smooth:
+        if sac_mm is None:
+            if sac_points is None:
+                raise ValueError("smooth=True needs the aneurysm sac size: pass sac_mm, or "
+                                 "sac_points to measure it from (or smooth=False)")
+            sac_mm = sac_span_mm(np.asarray(sac_points, np.float64) * to_m * 1e3)
+        v_mm, f, smooth_report = regularize_surface(v_in_mm, f, sac_mm, smooth_time_budget_s,
+                                                    **(smooth_kwargs or {}))
+    if remesh or smooth:
+        v_mm, f = remesh_isotropic(v_mm, f, target_edge_mm)
+    if v_mm is not v_in_mm:
+        focused_mask = focused_mask[cKDTree(v_in_mm).query(v_mm)[1]]   # nearest input vertex
+    pos = v_mm * 1e-3
     used = np.unique(f)
     if len(used) != len(pos):
         raise ValueError(f"{len(pos) - len(used)} vertices are in no face -- remove them first")
@@ -194,6 +242,10 @@ def prepare_surface(vertices, faces, units="mm", inlet_point=None, outlet_points
     rep = mesh_report(pos, f)
     rep.update(eig_max_resid=qc["eig_max_resid"], n_outlets=len(outlets),
                focused_fraction=float((node_type == FOCUSED).mean()))
+    if smooth_report is not None:
+        rep["smoothing"] = {k: smooth_report.get(k) for k in (
+            "status", "rounds", "sac_span_mm", "alpha", "target_scales_used",
+            "surface_deviation_vs_original_max_mm_real", "signed_excess_after")}
     return PreparedSurface(
         pos=torch.from_numpy(pc).float(), faces=f, node_type=torch.from_numpy(node_type),
         normals=torch.from_numpy(compute_vertex_normals(pc, f)).float(),

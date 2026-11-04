@@ -114,7 +114,7 @@ def main():
         verts_mm = s["pos"].double().numpy() * 1e3 + OFFSET_MM
         inlet_mm = verts_mm[nt == INLET].mean(0)
         outlet_mm = [verts_mm[nt == k].mean(0) for k in (OUTLET_0, OUTLET_1) if (nt == k).any()]
-        surf = prepare_surface(verts_mm, s["faces"].numpy(), units="mm", inlet_point=inlet_mm, outlet_points=outlet_mm,
+        surf = prepare_surface(verts_mm, s["faces"].numpy(), units="mm", inlet_point=inlet_mm, outlet_points=outlet_mm, smooth=False,
                                focused_mask=nt == FOCUSED, remesh=False, lap_k=pred.lap_k)
 
         # 1. features vs the stored statics
@@ -163,7 +163,7 @@ def main():
 
         # 4. remeshed wall (new vertices, new features), scored on the CFD points
         if not args.skip_remesh:
-            surf_r = prepare_surface(verts_mm, s["faces"].numpy(), units="mm", inlet_point=inlet_mm, outlet_points=outlet_mm,
+            surf_r = prepare_surface(verts_mm, s["faces"].numpy(), units="mm", inlet_point=inlet_mm, outlet_points=outlet_mm, smooth=False,
                                      focused_mask=nt == FOCUSED, remesh=True, lap_k=pred.lap_k)
             o_r = pred.predict(surf_r, query_points=q_mm[sub], crop_p=args.crop_p)
             o_s = pred.predict(surf_r)
