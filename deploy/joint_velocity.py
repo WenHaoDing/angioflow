@@ -90,11 +90,32 @@ def remesh_isotropic(vertices_mm, faces, target_edge_mm=TRAINING_MESH["edge_mm"]
     return np.asarray(m.vertex_matrix(), np.float64), np.asarray(m.face_matrix(), np.int64)
 
 
+_ANEUG_SHOWN = False
+
+
+def _dome_normalized():
+    """AneuG's mesh_regularizer.dome_normalized, imported as a TOP-LEVEL `AneuG` package (which
+    copy depends on sys.path order, so its location is printed once)."""
+    global _ANEUG_SHOWN
+    try:
+        from AneuG.mesh_regularizer import dome_normalized
+    except ImportError as e:
+        raise ImportError(
+            "smoothing needs AneuG importable as a top-level package: clone "
+            "https://github.com/WenHaoDing/AneuG next to angioflow (same parent folder, the one "
+            "on PYTHONPATH), branch vessel-conditioned (bad2a62 or later) or v2 -- it must have "
+            "mesh_regularizer/dome_normalized.py and the domenorm6.15 reference model. Or pass "
+            "smooth=False.") from e
+    if not _ANEUG_SHOWN:
+        print(f"[deploy] AneuG mesh regularizer: {os.path.dirname(os.path.abspath(dome_normalized.__file__))}")
+        _ANEUG_SHOWN = True
+    return dome_normalized
+
+
 def sac_span_mm(points_mm):
     """Aneurysm sac size as the dome-normalized regularizer defines it: the longest extent
     along the points' own principal axes (dome surface vertices or dome-label voxel centres)."""
-    from AneuG.mesh_regularizer.dome_normalized import pca_span
-    return pca_span(np.asarray(points_mm, np.float64))
+    return _dome_normalized().pca_span(np.asarray(points_mm, np.float64))
 
 
 def regularize_surface(vertices_mm, faces, sac_mm, time_budget_s=None, **kwargs):
@@ -108,7 +129,7 @@ def regularize_surface(vertices_mm, faces, sac_mm, time_budget_s=None, **kwargs)
     case); when hit, report["status"] is "time_budget_exceeded" and the mesh smoothed so far
     is returned. Returns (vertices_mm, faces, report)."""
     import trimesh
-    from AneuG.mesh_regularizer.dome_normalized import DomeNormalizedRegularizer
+    DomeNormalizedRegularizer = _dome_normalized().DomeNormalizedRegularizer
     opts = dict(export_edge=None, time_budget_s=time_budget_s, n_seeds=4000, verbose=False)
     opts.update(kwargs)
     reg = DomeNormalizedRegularizer(**opts)

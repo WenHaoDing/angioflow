@@ -267,11 +267,13 @@ cd "/media/yaplab2/HDD Storage/wenhao" && ~/miniconda3/envs/new/bin/python -m an
 `deploy/joint_velocity.prepare_surface` turns an MRI or segmentation surface into the model's input in three steps:
 
 1. **Smooth** (on by default) with AneuG's mesh regularizer. This is the **dome-normalized** variant, `AneuG/mesh_regularizer/dome_normalized.py`, with the reference model `reference_models/reference_roughness__domenorm6.15__t0.3-…-1.65__g2.npz`; that's the model to use, not the older mm-based ones.
-   - **Needs:** the sac size (`sac_mm`, or `sac_points` to measure it from) and the AneuG repo importable as `AneuG`.
+   - **Needs:** the sac size (`sac_mm`, or `sac_points` to measure it from) and AneuG (below).
    - **Time:** 1–4 min per case. `smooth_time_budget_s` caps it; `None` runs to convergence, which is fine for offline batches.
    - **Turn off** with `smooth=False` for meshes that are already CFD-smooth.
 2. **Remesh** to the 0.12 mm training edge with pymeshlab.
 3. **Compute the wall features** with the training pipeline's own functions.
+
+**AneuG dependency.** AneuG must be importable as a **top-level** `AneuG` package. Clone https://github.com/WenHaoDing/AneuG **next to `angioflow/`**, in the same parent folder (the folder on `PYTHONPATH`), or put its parent folder on `PYTHONPATH`. Use branch `vessel-conditioned` (`bad2a62` or later) or `v2`. It must have `mesh_regularizer/dome_normalized.py` and the `domenorm6.15` reference model; the two branches' regularizers are identical except for the README. Which copy gets imported depends on `sys.path` order, so the first smoothing call prints its location. Without AneuG, `smooth=True` raises an ImportError that says this; `smooth=False` doesn't need AneuG at all. `angioflow` doesn't track AneuG; a nested `angioflow/AneuG/` clone is ignored by git.
 
 Clip the surface first, using the centerline statistics under "How much vessel the model sees around the aneurysm". Details and checks are in [deploy/JOINT_VELOCITY_HANDOFF.md](deploy/JOINT_VELOCITY_HANDOFF.md).
 

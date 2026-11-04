@@ -18,7 +18,7 @@ The joint graph model predicts WSS, velocity and pressure together. You only nee
 ## Environment
 
 - Use the conda env `new`, with the parent of the `angioflow/` repo on `PYTHONPATH`.
-- The smoothing step needs the AneuG repo importable as `AneuG` (its `mesh_regularizer` package). The `vessel-conditioned` branch, next to `angioflow/`, works.
+- **AneuG (for smoothing):** AneuG must be importable as a **top-level** `AneuG` package. Clone https://github.com/WenHaoDing/AneuG **next to `angioflow/`**, in the same parent folder (the folder on `PYTHONPATH`), or put its parent folder on `PYTHONPATH`. Use branch `vessel-conditioned` (`bad2a62` or later) or `v2`. It must have `mesh_regularizer/dome_normalized.py` and the `domenorm6.15` reference model; the two branches' regularizers are identical except for the README. Which copy gets imported depends on `sys.path` order, so the first smoothing call prints its location. Without AneuG, `smooth=True` raises an ImportError that says this; `smooth=False` doesn't need AneuG at all. `angioflow` doesn't track AneuG; a nested `angioflow/AneuG/` clone is ignored by git.
 - Use any free GPU except 1 and 2. GPU 1 has faulty memory and GPU 2 overheats. CPU also works, more slowly.
 - **Speed:** without smoothing, one case takes about 1–7 s to prepare and 1–2 s to predict, plus 10–15 s when `predict` samples the lumen points itself. Smoothing adds 1–4 min per case; cap it with `smooth_time_budget_s`.
 
