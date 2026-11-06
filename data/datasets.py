@@ -343,7 +343,9 @@ class AngioFlowWallDataset(Dataset):
                                f"-- rerun angioflow.data.generate_flow_split --datasets {version}")
             for v, c in self.case_keys:
                 if v == version:
-                    table[(v, c)] = torch.tensor(cases[c]["q"], dtype=torch.float32).view(1, 2)
+                    # plain floats, not one tensor per case: a dataset pickled to forkserver/spawn
+                    # DataLoader workers sends each stored tensor as a file descriptor (thousands -> "too many fds")
+                    table[(v, c)] = tuple(float(q) for q in cases[c]["q"])
         return table
 
     def len(self):
@@ -370,7 +372,7 @@ class AngioFlowWallDataset(Dataset):
             case_id=cid,                # str — batched as list by PyG
         )
         if self.add_flow_split:
-            data.bc_flow_split = self._flow_split[(version, cid)]   # [1, 2] -> batches to [B, 2]
+            data.bc_flow_split = torch.tensor(self._flow_split[(version, cid)], dtype=torch.float32).view(1, 2)  # -> [B, 2]
         return data
 
 

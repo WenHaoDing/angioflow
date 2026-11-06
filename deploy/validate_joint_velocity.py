@@ -126,7 +126,7 @@ def main():
                                                                    / s["cot_eigval"][:pred.lap_k].abs().clamp_min(1e-6)).max()),
                     eigvec_dot_min=float(dot.min()),
                     gglobal=float(np.corrcoef(surf.global_geo_dist, g_ref)[0, 1]),
-                    flow=float((surf.flow_split.view(1, 2) - ds._flow_split[(v, cid)]).abs().max()))
+                    flow=float((surf.flow_split.view(1, 2) - torch.tensor(ds._flow_split[(v, cid)])).abs().max()))
 
         # 2. same CFD points, same crop: deploy vs dataset path
         gt_world, vel_gt, kept_rows, vel_ds = dataset_path(pred, ds, idx, args.crop_p)

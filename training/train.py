@@ -65,12 +65,21 @@ def excluded_case_keys(args):
     return keys
 
 
-def _chain(*transforms):
-    def _apply(data):
-        for t in transforms:
+class _Chain:
+    """Apply transforms in order. A class, not a closure, so a dataset holding it pickles --
+    DataLoader workers started with forkserver/spawn receive the dataset pickled."""
+
+    def __init__(self, *transforms):
+        self.transforms = transforms
+
+    def __call__(self, data):
+        for t in self.transforms:
             data = t(data)
         return data
-    return _apply
+
+
+def _chain(*transforms):
+    return _Chain(*transforms)
 
 
 def split_by_case(dataset, train_frac=0.8, seed=0, test_versions=None):

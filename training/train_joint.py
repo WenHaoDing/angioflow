@@ -174,6 +174,14 @@ def add_model_args(parser):
     g.add_argument("--lr_warmup_steps", type=int, default=0,
                    help="if > 0: linear LR warmup 0->lr over this many optimizer steps, replacing "
                         "--lr_warmup_epochs; the plateau scheduler starts after it")
+    g.add_argument("--loader_start_method", choices=["forkserver", "fork", "spawn"], default="forkserver",
+                   help="how DataLoader workers start. forkserver (default): forked from a clean helper "
+                        "process, so a thread of the training process (e.g. the Hub upload in "
+                        "train_joint_hf.py) holding a lock at fork time cannot deadlock a worker -- an "
+                        "HF Job hung that way for 3 h with fork")
+    g.add_argument("--loader_timeout", type=float, default=900,
+                   help="seconds to wait for one batch from the workers; a stuck worker then ends that "
+                        "training epoch early (eval is retried once) instead of hanging the run. 0 = wait forever")
     g.add_argument("--resume_lr", type=float, default=None,
                    help="on resume, set the optimizer's LR to this (e.g. after raising --batch_size); "
                         "applied once -- a later resume from a checkpoint saved with the same value "
@@ -296,14 +304,75 @@ class FramesPerCaseSampler(torch.utils.data.Sampler):
         return iter(pick.tolist())
 
 
-def evaluate_by_frame(model, loaders, waveform, device, args, y_mean, y_std, huber_delta, norm,
+class FrameBatchSampler(torch.utils.data.Sampler):
+    """Batches of `indices` that never mix frames (so evaluate() can report each frame from
+    ONE loader -- one set of workers -- instead of a loader per frame). Order is reshuffled
+    on every pass (the sanity renders take the first batch); metrics do not depend on it."""
+
+    def __init__(self, dataset, indices, batch_size, seed=0):
+        by_t = defaultdict(list)
+        for i in indices:
+            by_t[dataset._index[i][2]].append(i)
+        self.groups = [by_t[t] for t in sorted(by_t)]
+        self.frames = sorted(by_t)
+        self.batch_size, self.seed, self.n_iter = batch_size, seed, 0
+
+    def __len__(self):
+        return sum(-(-len(g) // self.batch_size) for g in self.groups)
+
+    def __iter__(self):
+        self.n_iter += 1
+        rng = np.random.default_rng((self.seed, self.n_iter))
+        batches = []
+        for g in self.groups:
+            g = rng.permutation(g).tolist()
+            batches += [g[j:j + self.batch_size] for j in range(0, len(g), self.batch_size)]
+        return iter([batches[k] for k in rng.permutation(len(batches))])
+
+
+class LoaderTimeout(RuntimeError):
+    pass
+
+
+def _batches(loader):
+    """Iterate a DataLoader; its timeout (a stuck worker) raises LoaderTimeout."""
+    it = iter(loader)
+    while True:
+        try:
+            b = next(it)
+        except StopIteration:
+            return
+        except RuntimeError as e:
+            if "timed out" in str(e):
+                del it                       # shuts the workers down (a stuck one is terminated)
+                raise LoaderTimeout(str(e)) from None
+            raise
+        yield b
+
+
+def make_loader(dataset, args, **kw):
+    """DataLoader with the run's worker settings (--num_workers, --loader_start_method, --loader_timeout)."""
+    if args.num_workers > 0:
+        kw.update(num_workers=args.num_workers, pin_memory=True, timeout=args.loader_timeout or 0)
+        if args.loader_start_method != "fork":
+            kw["multiprocessing_context"] = args.loader_start_method
+    return DataLoader(dataset, **kw)
+
+
+def evaluate_by_frame(model, loader, waveform, device, args, y_mean, y_std, huber_delta, norm,
                       max_batches=None):
-    """evaluate() per frame ({t: loader}); returns (sample-weighted mean, {t: metrics})."""
-    per = {t: evaluate(model, ld, waveform, device, args, y_mean, y_std, huber_delta, norm,
-                       max_batches=max_batches) for t, ld in loaders.items()}
-    w = {t: 1 if max_batches else len(ld.dataset) for t, ld in loaders.items()}
-    keys = set.intersection(*(set(m) for m in per.values()))
-    return {k: sum(per[t][k] * w[t] for t in per) / sum(w.values()) for k in keys}, per
+    """evaluate() on a FrameBatchSampler loader: (mean over all test samples, {t: metrics}).
+    A data-loader timeout is retried once (fresh workers) before it is raised."""
+    for attempt in (1, 2):
+        per = {}
+        try:
+            te = evaluate(model, loader, waveform, device, args, y_mean, y_std, huber_delta, norm,
+                          max_batches=max_batches, per_frame=per)
+            return te, dict(sorted(per.items()))
+        except LoaderTimeout as e:
+            if attempt == 2:
+                raise
+            print(f"[warn] eval: {e} -- a data worker is stuck; retrying the evaluation", flush=True)
 
 
 def joint_loss(wss, query_idx, vel, press, wall, interior, args, y_mean, y_std, huber_delta):
@@ -329,11 +398,14 @@ def joint_loss(wss, query_idx, vel, press, wall, interior, args, y_mean, y_std, 
 
 @torch.no_grad()
 def evaluate(model, loader, waveform, device, args, y_mean, y_std, huber_delta, norm,
-             max_batches=None):
+             max_batches=None, per_frame=None):
+    """Sample-weighted mean of the loss terms + denormalized MSEs. per_frame (a dict, filled in
+    place): also per frame t -- every batch must then hold one frame (FrameBatchSampler)."""
     model.eval()
     acc = defaultdict(float)
+    acc_t, n_t = defaultdict(lambda: defaultdict(float)), defaultdict(int)
     n = 0
-    for i_batch, (wall, interior) in enumerate(loader):
+    for i_batch, (wall, interior) in enumerate(_batches(loader)):
         if max_batches and i_batch >= max_batches:
             break
         wall, interior = wall.to(device), interior.to(device)
@@ -347,9 +419,20 @@ def evaluate(model, loader, waveform, device, args, y_mean, y_std, huber_delta, 
         # denormalized MSEs in physical units (WSS on whatever subset was queried)
         y = wall.y if query_idx is None else wall.y[query_idx]
         acc["mse_wss"] += ((wss - y) * y_std).pow(2).mean().item() * b
-        acc["mse_vel"] += ((vel - interior.vel) * norm.vel_std.to(device)).pow(2).mean().item() * b
+        mse_vel = ((vel - interior.vel) * norm.vel_std.to(device)).pow(2).mean().item()
+        acc["mse_vel"] += mse_vel * b
         n += b
+        if per_frame is not None:
+            t = int(wall.t[0])
+            assert bool((wall.t == t).all()), "per_frame needs single-frame batches (FrameBatchSampler)"
+            row = dict(loss=loss.item(), **comps, mse_wss=((wss - y) * y_std).pow(2).mean().item(),
+                       mse_vel=mse_vel)
+            for k, v in row.items():
+                acc_t[t][k] += v * b
+            n_t[t] += b
     model.train()
+    if per_frame is not None:
+        per_frame.update({t: {k: v / n_t[t] for k, v in a.items()} for t, a in acc_t.items()})
     n = max(n, 1)
     return {k: v / n for k, v in acc.items()}
 
@@ -535,31 +618,30 @@ def main(args, epoch_end_hook=None):
     ]
     dataset.transform = _chain(*transforms)
 
+    if args.num_workers > 0 and args.loader_start_method == "forkserver":
+        # the helper process imports these once; each worker forked from it starts warm
+        torch.multiprocessing.set_forkserver_preload(
+            ["torch", "torch_geometric", "angioflow.data.datasets_interior", "angioflow.transform"])
     all_frames = args.frames == "all"
     sampler = None
     if all_frames and args.train_frames_per_case > 0:
         sampler = FramesPerCaseSampler(dataset, train_idx, args.train_frames_per_case, seed=args.seed)
-        train_loader = DataLoader(dataset, batch_size=args.batch_size, sampler=sampler,
-                                  num_workers=args.num_workers, pin_memory=True)
+        train_loader = make_loader(dataset, args, batch_size=args.batch_size, sampler=sampler)
         print(f"[data] train: {args.train_frames_per_case} random frame(s) per case per epoch "
               f"-> {len(sampler)} samples, {len(train_loader)} steps per epoch")
     else:
         assert not args.train_frames_per_case, "--train_frames_per_case needs --frames all"
-        train_loader = DataLoader(Subset(dataset, train_idx), batch_size=args.batch_size,
-                                  shuffle=True, num_workers=args.num_workers, pin_memory=True)
+        train_loader = make_loader(Subset(dataset, train_idx), args, batch_size=args.batch_size, shuffle=True)
     if args.test_frames:
         assert all_frames, "--test_frames needs --frames all"
         keep = {int(t) for t in args.test_frames.split(",")}
         test_idx = [i for i in test_idx if dataset._index[i][2] in keep]
-    by_frame = defaultdict(list)
-    for i in test_idx:
-        by_frame[dataset._index[i][2]].append(i)
-    test_loaders = {t: DataLoader(Subset(dataset, by_frame[t]), batch_size=args.batch_size, shuffle=False,
-                                  num_workers=args.num_workers, pin_memory=True) for t in sorted(by_frame)}
-    test_loader = DataLoader(Subset(dataset, test_idx), batch_size=args.batch_size,      # sanity renders
-                             shuffle=True, num_workers=args.num_workers, pin_memory=True)
-    print(f"[data] test: {len(test_idx)} samples at {len(by_frame)} frame(s)"
-          + (f" {sorted(by_frame)}" if len(by_frame) <= 20 else ""))
+    # one loader for every test frame (batches never mix frames): evaluation and sanity renders
+    test_sampler = FrameBatchSampler(dataset, test_idx, args.batch_size, seed=args.seed)
+    test_loader = make_loader(dataset, args, batch_sampler=test_sampler)
+    print(f"[data] test: {len(test_idx)} samples at {len(test_sampler.frames)} frame(s)"
+          + (f" {test_sampler.frames}" if len(test_sampler.frames) <= 20 else "")
+          + f"; workers start via {args.loader_start_method if args.num_workers else 'main process'}")
 
     waveform = load_waveform(args.waveform_path, length=1000, device=device)
     model = build_model(args, device)
@@ -607,48 +689,52 @@ def main(args, epoch_end_hook=None):
         tr = defaultdict(float)
         n = 0
         gnorm_sum, gnorm_max, n_clipped, n_steps = 0.0, 0.0, 0, 0
-        for wall, interior in train_loader:
-            t_step = time.perf_counter()
-            wall, interior = wall.to(device), interior.to(device)
-            if (torch.isnan(wall.y).any() or torch.isnan(interior.vel).any()
-                    or torch.isnan(interior.press).any()):
-                print("[warn] NaN in targets — skipping batch")
-                continue
-            if args.lr_warmup_steps and global_step < args.lr_warmup_steps:
-                for pg in optim.param_groups:
-                    pg["lr"] = args.lr * (global_step + 1) / args.lr_warmup_steps
-            optim.zero_grad()
-            wss, query_idx, vel, press = model(wall, interior, waveform)
-            loss, comps = joint_loss(wss, query_idx, vel, press, wall, interior, args,
-                                     y_mean, y_std, huber_delta)
-            if torch.isnan(loss):
-                print("[warn] NaN loss — skipping batch"); optim.zero_grad(); continue
-            loss.backward()
-            gnorm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=args.grad_clip_norm)
-            gnorm_sum += gnorm.item()
-            gnorm_max = max(gnorm_max, gnorm.item())
-            n_clipped += gnorm.item() > args.grad_clip_norm
-            n_steps += 1
-            global_step += 1
-            optim.step()
-            if args.max_steps:
-                print(f"[step {n_steps:3d}] loss {loss.item():.4g}  {time.perf_counter() - t_step:.2f}s  "
-                      f"wall {wall.num_nodes} interior {interior.num_nodes} nodes  "
-                      f"peak GPU {_peak_gpu_gb(device):.1f} GB", flush=True)
-            b = wall.num_graphs
-            tr["loss"] += loss.item() * b
-            for k, v in comps.items():
-                tr[k] += v * b
-            n += b
-            if args.max_steps and n_steps >= args.max_steps:
-                break
+        try:
+            for wall, interior in _batches(train_loader):
+                t_step = time.perf_counter()
+                wall, interior = wall.to(device), interior.to(device)
+                if (torch.isnan(wall.y).any() or torch.isnan(interior.vel).any()
+                        or torch.isnan(interior.press).any()):
+                    print("[warn] NaN in targets — skipping batch")
+                    continue
+                if args.lr_warmup_steps and global_step < args.lr_warmup_steps:
+                    for pg in optim.param_groups:
+                        pg["lr"] = args.lr * (global_step + 1) / args.lr_warmup_steps
+                optim.zero_grad()
+                wss, query_idx, vel, press = model(wall, interior, waveform)
+                loss, comps = joint_loss(wss, query_idx, vel, press, wall, interior, args,
+                                         y_mean, y_std, huber_delta)
+                if torch.isnan(loss):
+                    print("[warn] NaN loss — skipping batch"); optim.zero_grad(); continue
+                loss.backward()
+                gnorm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=args.grad_clip_norm)
+                gnorm_sum += gnorm.item()
+                gnorm_max = max(gnorm_max, gnorm.item())
+                n_clipped += gnorm.item() > args.grad_clip_norm
+                n_steps += 1
+                global_step += 1
+                optim.step()
+                if args.max_steps:
+                    print(f"[step {n_steps:3d}] loss {loss.item():.4g}  {time.perf_counter() - t_step:.2f}s  "
+                          f"wall {wall.num_nodes} interior {interior.num_nodes} nodes  "
+                          f"peak GPU {_peak_gpu_gb(device):.1f} GB", flush=True)
+                b = wall.num_graphs
+                tr["loss"] += loss.item() * b
+                for k, v in comps.items():
+                    tr[k] += v * b
+                n += b
+                if args.max_steps and n_steps >= args.max_steps:
+                    break
+        except LoaderTimeout as e:
+            print(f"[warn] train: {e} -- a data worker is stuck; epoch {epoch} ends early after "
+                  f"{n_steps} step(s), workers restart for the next one", flush=True)
         n = max(n, 1)
         gnorm_mean = gnorm_sum / max(n_steps, 1)
         clip_frac = n_clipped / max(n_steps, 1)
 
         if args.lr_warmup_steps:            # still warming up at the end of this epoch?
             warming_up = global_step < args.lr_warmup_steps
-        te, te_frames = evaluate_by_frame(model, test_loaders, waveform, device, args, y_mean, y_std,
+        te, te_frames = evaluate_by_frame(model, test_loader, waveform, device, args, y_mean, y_std,
                                           huber_delta, norm, max_batches=args.max_steps)
         te_loss = te["loss"]
         f0 = te_frames.get(0) if all_frames else None
