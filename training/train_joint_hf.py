@@ -13,8 +13,8 @@
                 trains on K random frames per case and tests at fixed frames, frame 0 logged
                 apart (train_joint.py). To warm-start from a frame-0 model, upload its best.pth
                 to <ckpt_repo>/_init/ and pass --init_ckpt _init/<name>.pth, with the peak LR
-                from training/lr_probe_joint.py (1e-4 for the v3data joint model) and
-                --lr_warmup_steps.
+                from training/lr_probe_joint.py (v3data joint model: 1e-4 and 3e-4 tied after
+                1,000 steps, 3e-5 forgot frame 0 worst; 3e-4 used) and --lr_warmup_steps.
   run inputs    stats.pt, the interior stats and the inlet waveform, which are not in the
                 public dataset, from _meta/ of the PRIVATE checkpoint repo (--ckpt_repo).
                 The interior stats file is interior_stats_zeromax.pt with --press_zero_max,
