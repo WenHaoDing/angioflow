@@ -1,0 +1,378 @@
+<title>Aneurysms on Healthy Vessels</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: same identity as the AngioFlow update page; one stage holding the four steps as a row of 3D views. */
+:root {
+  --bg: #f4f6f8; --paper: #ffffff; --ink: #15202b; --mute: #566373; --line: #dce2e8;
+  --stage: #e6ebf0; --stage-ink: #26303b; --accent: #1d5c87;
+  --sac: #2a78d6; --ring: #e34948; --parent: #c9a27a; --heat-lo: #b9c0c8; --heat-hi: #c2272d;
+  --ink-ring: #15202b; --real-sac: #e0915f;
+  --f-display: "Newsreader", Georgia, "Times New Roman", serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f141a; --paper: #161c24; --ink: #e5eaef; --mute: #98a4b1; --line: #28313b;
+    --stage: #1b222b; --stage-ink: #d5dce3; --accent: #86b6df; --sac: #3987e5; --heat-lo: #5b6570; --ink-ring: #f2f4f7;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f141a; --paper: #161c24; --ink: #e5eaef; --mute: #98a4b1; --line: #28313b;
+  --stage: #1b222b; --stage-ink: #d5dce3; --accent: #86b6df; --sac: #3987e5; --heat-lo: #5b6570; --ink-ring: #f2f4f7;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 16px; line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 64px;
+}
+.wrap { max-width: 1240px; margin: 0 auto; display: grid; gap: 40px; }
+h1, h2, h3 { font-family: var(--f-display); font-weight: 500; text-wrap: balance; margin: 0; letter-spacing: -0.01em; }
+h1 { font-size: clamp(2.1rem, 5vw, 3.3rem); line-height: 1.08; max-width: 20ch; }
+p { margin: 0; max-width: 62ch; }
+.eyebrow { font-family: var(--f-mono); font-size: 0.75rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); }
+header { padding-top: 56px; display: grid; gap: 16px; }
+header p { font-size: 1.12rem; color: var(--mute); }
+.flow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; font-size: 0.92rem; }
+.flow span { padding: 5px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--paper); }
+.flow i { color: var(--mute); font-style: normal; }
+.stage { background: var(--stage); color: var(--stage-ink); border-radius: 14px; padding: 18px; display: grid; gap: 16px; min-width: 0; }
+.pickers { display: flex; flex-wrap: wrap; gap: 10px 28px; align-items: center; }
+.picker { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.picker .lbl { font-size: 0.8rem; opacity: 0.75; margin-right: 2px; }
+.picker button {
+  font: inherit; font-size: 0.86rem; color: var(--stage-ink); background: transparent;
+  border: 1px solid color-mix(in srgb, var(--stage-ink) 25%, transparent); border-radius: 999px; padding: 5px 13px; cursor: pointer;
+}
+.picker button[aria-pressed="true"] { background: var(--stage-ink); color: var(--stage); border-color: var(--stage-ink); }
+.picker button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 980px) { .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .steps { grid-template-columns: minmax(0, 1fr); } }
+figure { margin: 0; display: grid; gap: 8px; align-content: start; min-width: 0; }
+.cv { position: relative; aspect-ratio: 1 / 1; max-width: 100%; border-radius: 10px; overflow: hidden; background: var(--paper); }
+canvas { width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+.loading { position: absolute; inset: 0; display: grid; place-items: center; font-size: 0.85rem; color: var(--mute); pointer-events: none; }
+figcaption { display: grid; gap: 3px; }
+figcaption b { font-family: var(--f-display); font-weight: 500; font-size: 1.15rem; line-height: 1.2; }
+figcaption span { font-size: 0.84rem; opacity: 0.8; }
+.key { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 0.78rem; opacity: 0.9; }
+.key em { font-style: normal; display: inline-flex; align-items: center; gap: 5px; }
+.key i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.heat { width: 64px; height: 8px; border-radius: 2px; display: inline-block; background: linear-gradient(90deg, var(--heat-lo), #f0a37e, var(--heat-hi)); }
+.hint { font-size: 0.8rem; opacity: 0.75; }
+section.check { display: grid; gap: 16px; }
+section.check .head { display: grid; gap: 8px; }
+h2 { font-size: clamp(1.5rem, 3vw, 2.05rem); line-height: 1.15; }
+.sub { color: var(--mute); }
+.gridhead { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 20px; align-items: center; }
+.ggrid { position: relative; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; touch-action: none; cursor: grab; user-select: none; }
+@media (max-width: 900px) { .ggrid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .ggrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.ggrid canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
+.gcell { position: relative; aspect-ratio: 1 / 1; border-radius: 8px; background: var(--paper); }
+.gcell .cl, .gcell .cd { position: absolute; z-index: 2; font-family: var(--f-mono); font-size: 0.72rem; opacity: 0.8; }
+.gcell .cl { top: 6px; left: 8px; } .gcell .cd { bottom: 6px; right: 8px; }
+button.reset { font: inherit; font-size: 0.78rem; color: var(--stage-ink); background: transparent; border: 1px solid color-mix(in srgb, var(--stage-ink) 30%, transparent); border-radius: 999px; padding: 2px 9px; cursor: pointer; }
+button.reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.key i.realk { background: var(--ink-ring); }
+.casenote { font-size: 0.88rem; opacity: 0.85; font-variant-numeric: tabular-nums; }
+footer { font-size: 0.82rem; color: var(--mute); display: grid; gap: 4px; }
+footer a { color: var(--accent); }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">AneuG · new generative model</div>
+    <h1>Growing an aneurysm on a healthy vessel</h1>
+    <p>From a healthy vessel in an MRA scan, the model picks where an aneurysm forms, draws its neck and sac, and adds it to the scan.</p>
+    <div class="flow" aria-label="Pipeline">
+      <span>Healthy vessel</span><i>→</i><span>Where</span><i>→</i><span>Neck</span><i>→</i><span>Sac</span><i>→</i><span>Into the scan</span>
+    </div>
+  </header>
+
+  <div class="stage">
+    <div class="pickers">
+      <div class="picker" id="vpick" role="group" aria-label="Choose a vessel"><span class="lbl">Vessel</span></div>
+      <div class="picker" id="spick" role="group" aria-label="Choose a generated aneurysm"><span class="lbl">Aneurysm</span></div>
+      <span class="hint">Drag to rotate, scroll to zoom.</span>
+    </div>
+    <div class="steps">
+      <figure><div class="cv"><canvas id="c0"></canvas><div class="loading">Loading…</div></div>
+        <figcaption><b>1 · Healthy vessel</b><span>Its centerline graph is the model's input.</span></figcaption></figure>
+      <figure><div class="cv"><canvas id="c1"></canvas><div class="loading">Loading…</div></div>
+        <figcaption><b>2 · Where</b><span>Likely aneurysm sites.</span>
+          <span class="key"><em>low <i class="heat"></i> high</em></span></figcaption></figure>
+      <figure><div class="cv"><canvas id="c2"></canvas><div class="loading">Loading…</div></div>
+        <figcaption><b>3 · Neck, then sac</b><span>The sac is generated on the neck; only the dome is kept.</span>
+          <span class="key"><em><i style="background:var(--ring)"></i>neck</em><em><i style="background:var(--sac)"></i>dome</em><em><i style="background:var(--parent)"></i>parent vessel (dropped)</em></span></figcaption></figure>
+      <figure><div class="cv"><canvas id="c3"></canvas><div class="loading">Loading…</div></div>
+        <figcaption><b>4 · Into the scan</b><span>Merged into the vessel mask, voxel by voxel.</span>
+          <span class="key"><em><i style="background:#aab3bd"></i>real vessel</em><em><i style="background:var(--sac)"></i>new aneurysm</em></span></figcaption></figure>
+    </div>
+  </div>
+
+  <section class="check">
+    <div class="head">
+      <div class="eyebrow">Check</div>
+      <h2>Model vs real aneurysm, on 15 held-out patients</h2>
+      <p class="sub">The model sees only the vessel. Dark ring: where the real aneurysm sits. Blue: sites and necks the model draws.</p>
+    </div>
+    <div class="stage">
+      <div class="gridhead">
+        <span class="key"><em><i class="realk"></i>real neck</em><em><i style="background:var(--sac)"></i>model samples</em><em>site probability <i class="heat"></i></em><em>corner: median distance of the samples to the real site</em></span>
+        <span class="hint">Drag to rotate all · <button type="button" id="greset" class="reset">Reset view</button></span>
+      </div>
+      <div class="ggrid" id="ggrid"><canvas id="gcanvas"></canvas></div>
+    </div>
+  </section>
+
+  <footer>
+    <span id="foot">Test patients the model never saw.</span>
+    <span>Views 1–2 show the whole vessel patch; views 3–4 zoom on the new aneurysm.</span>
+    <span><a href="https://claude.ai/artifact/Ev7SzNoERdkBtQmD6obLp7">AngioFlow model update →</a></span>
+  </footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(() => {
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const col = h => new THREE.Color(css(h) || h);
+
+class Viewer {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.renderer = new THREE.WebGLRenderer({canvas, antialias: true, alpha: true});
+    this.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    this.scene = new THREE.Scene();
+    this.camera = new THREE.PerspectiveCamera(30, 1, 0.1, 2000);
+    this.scene.add(this.camera);
+    this.scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+    const key = new THREE.DirectionalLight(0xffffff, 0.65); key.position.set(0.4, 0.6, 1); this.camera.add(key);
+    const fill = new THREE.DirectionalLight(0xffffff, 0.25); fill.position.set(-0.6, -0.3, 0.4); this.camera.add(fill);
+    this.controls = new THREE.OrbitControls(this.camera, canvas);
+    this.objects = []; this.peers = [];
+    new ResizeObserver(() => this.resize()).observe(canvas.parentElement);
+    this.controls.addEventListener("change", () => this.sync());
+  }
+  resize() {
+    const r = this.canvas.parentElement.getBoundingClientRect(); if (!r.width) return;
+    this.renderer.setSize(r.width, r.height, false);
+    this.camera.aspect = r.width / r.height; this.camera.updateProjectionMatrix(); this.render();
+  }
+  set(objs) {
+    for (const o of this.objects) this.scene.remove(o);
+    this.objects = objs; for (const o of objs) this.scene.add(o);
+    this.canvas.parentElement.querySelector(".loading").hidden = true;
+  }
+  fit(center, radius, dir) {
+    const d = radius / Math.sin(this.camera.fov * Math.PI / 360) * 1.05;
+    this.controls.target.copy(center);
+    this.camera.position.copy(center).addScaledVector(dir, d); this.camera.up.set(0, 1, 0);
+    this.camera.near = d / 100; this.camera.far = d * 10; this.camera.updateProjectionMatrix(); this.controls.update();
+  }
+  sync() {
+    if (Viewer.syncing) return;
+    Viewer.syncing = true;
+    for (const p of this.peers) {
+      p.camera.position.copy(this.camera.position); p.camera.quaternion.copy(this.camera.quaternion);
+      p.camera.up.copy(this.camera.up); p.controls.target.copy(this.controls.target); p.controls.update();
+    }
+    Viewer.syncing = false;
+    for (const v of [this, ...this.peers]) v.render();
+  }
+  render() { this.renderer.render(this.scene, this.camera); }
+}
+const group = ids => { const vs = ids.map(id => new Viewer(document.getElementById(id))); vs.forEach(v => v.peers = vs.filter(o => o !== v)); return vs; };
+const [A0, A1] = group(["c0", "c1"]), [B0, B1] = group(["c2", "c3"]);
+const ALL = [A0, A1, B0, B1];
+
+async function fetchBin(url) {
+  const r = await fetch(url); if (!r.ok) throw new Error(`${url}: ${r.status}`);
+  const s = atob((await r.text()).trim()), out = new Uint8Array(s.length);
+  for (let i = 0; i < s.length; i++) out[i] = s.charCodeAt(i);
+  return out.buffer;
+}
+const reader = buf => { let o = 0; return (T, n) => { const a = new T(buf, o, n); o += n * T.BYTES_PER_ELEMENT; return a; }; };
+const geo = (v, f) => { const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(v, 3));
+  g.setIndex(new THREE.BufferAttribute(f, 1)); g.computeVertexNormals(); g.computeBoundingSphere(); return g; };
+const solid = (g, c, extra = {}) => new THREE.Mesh(g, new THREE.MeshLambertMaterial(Object.assign({color: c, side: THREE.DoubleSide}, extra)));
+const ghost = (g, op) => solid(g, col("--heat-lo"), {transparent: true, opacity: op, depthWrite: false});
+
+let cases = [], caseData = {}, cur = 0, view = new THREE.Vector3(0, 0, 1);
+async function loadCase(i) {
+  const c = cases[i]; if (caseData[c.case]) return caseData[c.case];
+  const t = reader(await fetchBin(`data/vessel/${c.case}.b64.txt`));
+  const d = {vv: t(Float32Array, c.nv * 3), vf: t(Uint32Array, c.nf * 3), gp: t(Float32Array, c.N * 3), sc: t(Float32Array, c.N), samples: {}};
+  d.vessel = geo(d.vv, d.vf);
+  return (caseData[c.case] = d);
+}
+async function loadSample(i, s) {
+  const d = await loadCase(i); if (d.samples[s.sample]) return d.samples[s.sample];
+  const t = reader(await fetchBin(`data/vessel/${cases[i].case}_s${s.sample}.b64.txt`));
+  const o = {ring: t(Float32Array, s.nr * 3), cv: t(Float32Array, s.nc * 3), cf: t(Uint32Array, s.ncf * 3), pd: t(Float32Array, s.nc),
+             mv: t(Float32Array, s.nm * 3), mf: t(Uint32Array, s.nmf * 3), lab: t(Uint8Array, Math.ceil(s.nm / 4) * 4)};
+  return (d.samples[s.sample] = o);
+}
+function heat(x) {   // grey -> peach -> red, on sqrt(score) so small but real scores stay visible
+  const lo = col("--heat-lo"), mid = new THREE.Color("#f0a37e"), hi = col("--heat-hi");
+  const t = Math.sqrt(Math.max(0, Math.min(1, x)));
+  return t < 0.5 ? lo.clone().lerp(mid, t * 2) : mid.clone().lerp(hi, (t - 0.5) * 2);
+}
+
+async function showCase(i) {
+  cur = i;
+  document.querySelectorAll("#vpick button").forEach((b, j) => b.setAttribute("aria-pressed", j === i ? "true" : "false"));
+  const c = cases[i], d = await loadCase(i);
+  const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(d.gp, 3));
+  const gcol = new Float32Array(c.N * 3), base = col("--ink");
+  for (let k = 0; k < c.N; k++) { const h = heat(d.sc[k]); gcol.set([h.r, h.g, h.b], 3 * k); }
+  g.setAttribute("color", new THREE.BufferAttribute(gcol, 3));
+  const line = new THREE.Points(g, new THREE.PointsMaterial({color: base, size: 0.35}));
+  const hot = new THREE.Points(g, new THREE.PointsMaterial({vertexColors: true, size: 1.6}));
+  A0.set([ghost(d.vessel, 0.35), line]);
+  A1.set([ghost(d.vessel, 0.22), hot]);
+  const bs = d.vessel.boundingSphere;
+  A0.fit(bs.center, bs.radius, view); A1.fit(bs.center, bs.radius, view);
+  document.getElementById("spick").innerHTML = `<span class="lbl">Aneurysm</span>` + c.samples.map((s, j) =>
+    `<button type="button" id="s-${j}" aria-pressed="false">${j + 1}</button>`).join("");
+  document.querySelectorAll("#spick button").forEach((b, j) => b.addEventListener("click", () => showSample(j)));
+  document.getElementById("foot").textContent =
+    `Test patients the model never saw. This vessel: ${c.n_generated} aneurysms generated, ${c.n_accepted} passed the automatic checks; ${c.samples.length} shown.`;
+  await showSample(0);
+  ALL.forEach(v => { v.resize(); v.render(); });
+}
+async function showSample(j) {
+  document.querySelectorAll("#spick button").forEach((b, k) => b.setAttribute("aria-pressed", k === j ? "true" : "false"));
+  const c = cases[cur], d = await loadCase(cur), s = c.samples[j], o = await loadSample(cur, s);
+  // neck ring as a tube
+  const pts = []; for (let k = 0; k < s.nr; k++) pts.push(new THREE.Vector3(o.ring[3 * k], o.ring[3 * k + 1], o.ring[3 * k + 2]));
+  const ring = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, true), 128, 0.12, 8, true),
+                              new THREE.MeshLambertMaterial({color: col("--ring")}));
+  const centre = pts.reduce((a, p) => a.add(p), new THREE.Vector3()).multiplyScalar(1 / pts.length);
+  // generated complex: dome solid, parent vessel faint; faces split by dome probability
+  const dome = [], parent = [];
+  for (let f = 0; f < s.ncf; f++) {
+    const a = o.cf[3 * f], b = o.cf[3 * f + 1], e = o.cf[3 * f + 2];
+    ((o.pd[a] + o.pd[b] + o.pd[e]) / 3 > 0.5 ? dome : parent).push(a, b, e);
+  }
+  const cg = f => geo(o.cv, new Uint32Array(f));
+  B0.set([ghost(d.vessel, 0.18), solid(cg(dome), col("--sac")),
+          solid(cg(parent), col("--parent"), {transparent: true, opacity: 0.35, depthWrite: false}), ring]);
+  // merged mask surface, coloured by label
+  const mg = geo(o.mv, o.mf), mc = new Float32Array(s.nm * 3), grey = new THREE.Color("#aab3bd"), blue = col("--sac");
+  for (let k = 0; k < s.nm; k++) { const q = o.lab[k] === 2 ? blue : grey; mc.set([q.r, q.g, q.b], 3 * k); }
+  mg.setAttribute("color", new THREE.BufferAttribute(mc, 3));
+  B1.set([new THREE.Mesh(mg, new THREE.MeshLambertMaterial({vertexColors: true, side: THREE.DoubleSide}))]);
+  // zoom on the new aneurysm, looking from the vessel towards the sac
+  let r = 0; for (let k = 0; k < s.nc; k++) if (o.pd[k] > 0.5) r = Math.max(r, Math.hypot(o.cv[3 * k] - centre.x, o.cv[3 * k + 1] - centre.y, o.cv[3 * k + 2] - centre.z));
+  const R = Math.max(6, r * 2.2);
+  const out = new THREE.Vector3(); let n = 0;
+  for (let k = 0; k < s.nc; k++) if (o.pd[k] > 0.5) { out.x += o.cv[3 * k]; out.y += o.cv[3 * k + 1]; out.z += o.cv[3 * k + 2]; n++; }
+  out.multiplyScalar(1 / Math.max(1, n)).sub(centre);
+  const side = new THREE.Vector3().crossVectors(out, new THREE.Vector3(0, 1, 0));
+  const dir = (side.lengthSq() > 1e-6 ? side.normalize().addScaledVector(out.normalize(), 0.6) : new THREE.Vector3(0, 0, 1)).normalize();
+  B0.fit(centre, R, dir); B1.fit(centre, R, dir);
+  B0.render(); B1.render();
+}
+
+(async () => {
+  cases = (await fetch("data/vessel/cases.json").then(r => r.json())).cases;
+  document.getElementById("vpick").innerHTML = `<span class="lbl">Vessel</span>` + cases.map((c, i) =>
+    `<button type="button" id="v-${i}" aria-pressed="false">${i + 1}</button>`).join("");
+  document.querySelectorAll("#vpick button").forEach((b, i) => b.addEventListener("click", () => showCase(i)));
+  await showCase(0);
+})().catch(e => { document.getElementById("foot").textContent = `Could not load the data (${e.message}).`; });
+
+// ---------------------------------------------------------------- held-out check: small multiples
+// one canvas, one viewport per patient, all rotated together
+const gridEl = document.getElementById("ggrid"), gcan = document.getElementById("gcanvas");
+const grend = new THREE.WebGLRenderer({canvas: gcan, antialias: true, alpha: true});
+grend.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+grend.setScissorTest(true);
+const cells = [];
+let gq = new THREE.Quaternion();
+const tube = (pts, r, c) => new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, true), 96, r, 6, true),
+                                            new THREE.MeshLambertMaterial({color: c}));
+const vecs = (a, off, n) => { const out = []; for (let k = 0; k < n; k++) out.push(new THREE.Vector3(a[off + 3 * k], a[off + 3 * k + 1], a[off + 3 * k + 2])); return out; };
+function buildCell(c, d, el) {
+  const scene = new THREE.Scene(), cam = new THREE.PerspectiveCamera(28, 1, 0.1, 2000);
+  scene.add(cam); scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+  const key = new THREE.DirectionalLight(0xffffff, 0.6); key.position.set(0.4, 0.6, 1); cam.add(key);
+  const content = new THREE.Group(), pivot = new THREE.Group(); pivot.add(content); scene.add(pivot);
+  let pmax = 0; for (const p of d.prob) pmax = Math.max(pmax, p);
+  const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(d.pos, 3));
+  const gc = new Float32Array(c.N * 3); for (let k = 0; k < c.N; k++) { const h = heat(d.prob[k] / pmax); gc.set([h.r, h.g, h.b], 3 * k); }
+  g.setAttribute("color", new THREE.BufferAttribute(gc, 3)); g.computeBoundingSphere();
+  content.add(new THREE.Points(g, new THREE.PointsMaterial({vertexColors: true, size: 1.1})));
+  const real = vecs(d.ring, 0, 64), blue = col("--sac");
+  content.add(tube(real, 0.32, col("--ink-ring")));
+  for (let k = 0; k < c.k; k++) {
+    content.add(tube(vecs(d.mring, k * 192, 64), 0.16, blue));
+    const s = new THREE.Mesh(new THREE.SphereGeometry(0.45, 12, 8), new THREE.MeshLambertMaterial({color: blue}));
+    s.position.set(d.msite[3 * k], d.msite[3 * k + 1], d.msite[3 * k + 2]); content.add(s);
+  }
+  // pivot on the graph centre; base orientation: look at the real neck face on, from the sac side
+  const ctr = g.boundingSphere.center.clone(); content.position.copy(ctr).negate();
+  const rc = real.reduce((a, p) => a.add(p), new THREE.Vector3()).multiplyScalar(1 / 64);
+  const n = new THREE.Vector3();
+  for (let k = 0; k < 64; k++) n.add(new THREE.Vector3().crossVectors(real[k].clone().sub(rc), real[(k + 1) % 64].clone().sub(rc)));
+  let best = 1e9, near = new THREE.Vector3();
+  for (let k = 0; k < c.N; k++) { const q = new THREE.Vector3(d.pos[3 * k], d.pos[3 * k + 1], d.pos[3 * k + 2]); const dd = q.distanceTo(rc); if (dd < best) { best = dd; near = q; } }
+  if (n.lengthSq() < 1e-9) n.set(0, 0, 1);
+  n.normalize(); if (n.dot(rc.clone().sub(near)) < 0) n.negate();
+  const tilt = new THREE.Vector3(0.35, 0.45, 1).normalize();
+  const base = new THREE.Quaternion().setFromUnitVectors(n, tilt);
+  const R = g.boundingSphere.radius, dist = R / Math.sin(cam.fov * Math.PI / 360) * 0.95;
+  cam.position.set(0, 0, dist); cam.near = dist / 100; cam.far = dist * 10;
+  const med = [...c.site_dist_mm].sort((x, y) => x - y)[Math.floor(c.k / 2)];
+  el.innerHTML = `<span class="cl">${c.i + 1}</span><span class="cd">${med.toFixed(1)} mm</span>`;
+  return {scene, cam, pivot, base, el};
+}
+function renderGrid() {
+  const gr = gridEl.getBoundingClientRect();
+  if (!gr.width) return;
+  grend.setSize(gr.width, gr.height, false);
+  grend.setClearColor(0x000000, 0); grend.setScissor(0, 0, gr.width, gr.height); grend.clear();
+  for (const c of cells) {
+    const r = c.el.getBoundingClientRect(), x = r.left - gr.left, y = gr.bottom - r.bottom;
+    grend.setViewport(x, y, r.width, r.height); grend.setScissor(x, y, r.width, r.height);
+    c.cam.aspect = r.width / r.height; c.cam.updateProjectionMatrix();
+    c.pivot.quaternion.copy(gq).multiply(c.base);
+    grend.render(c.scene, c.cam);
+  }
+}
+new ResizeObserver(renderGrid).observe(gridEl);
+let drag = null;
+gridEl.addEventListener("pointerdown", e => { drag = {x: e.clientX, y: e.clientY}; gridEl.setPointerCapture(e.pointerId); });
+gridEl.addEventListener("pointermove", e => {
+  if (!drag) return;
+  const dx = (e.clientX - drag.x) * 0.008, dy = (e.clientY - drag.y) * 0.008; drag = {x: e.clientX, y: e.clientY};
+  const qy = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), dx);
+  const qx = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), dy);
+  gq = qy.multiply(qx).multiply(gq); requestAnimationFrame(renderGrid);
+});
+const endDrag = () => { drag = null; };
+gridEl.addEventListener("pointerup", endDrag); gridEl.addEventListener("pointercancel", endDrag);
+document.getElementById("greset").addEventListener("click", () => { gq = new THREE.Quaternion(); renderGrid(); });
+(async () => {
+  const m = await fetch("data/ostium_val/cases.json").then(r => r.json());
+  for (const c of m.cases) {
+    const el = document.createElement("div"); el.className = "gcell"; gridEl.appendChild(el);
+    const t = reader(await fetchBin(`data/ostium_val/${String(c.i).padStart(2, "0")}.b64.txt`));
+    const d = {pos: t(Float32Array, c.N * 3), prob: t(Float32Array, c.N), ring: t(Float32Array, 192),
+               msite: t(Float32Array, c.k * 3), mring: t(Float32Array, c.k * 192)};
+    cells.push(buildCell(c, d, el));
+    renderGrid();
+  }
+})().catch(e => { gridEl.insertAdjacentHTML("beforeend", `<p class="hint">Could not load the check data (${e.message}).</p>`); });
+})();
+</script>

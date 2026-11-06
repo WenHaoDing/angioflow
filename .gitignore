@@ -3,3 +3,5 @@ __pycache__/
 *.pyc
 debugging/meshing
 deploy/sanity/
+presentation/site/data/
+presentation/site_vessel/data/

@@ -1,0 +1,713 @@
+<title>AngioFlow Model Update</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one left-aligned reading column; results break out wider on a dark "stage" like a radiology viewer. */
+:root {
+  --bg: #f4f6f8;
+  --paper: #ffffff;
+  --ink: #15202b;
+  --mute: #566373;
+  --line: #dce2e8;
+  --stage: #e6ebf0;
+  --stage-ink: #26303b;
+  --accent: #1d5c87;
+  --m1: #2a78d6;      /* WSS-only model */
+  --m2: #eb6834;      /* dual-branch model */
+  --dome: #eda100; --inlet: #e34948; --out1: #6250d6; --out2: #1baf7a;   /* AneuG part labels */
+  --f-display: "Newsreader", Georgia, "Times New Roman", serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f141a; --paper: #161c24; --ink: #e5eaef; --mute: #98a4b1; --line: #28313b;
+    --stage: #1b222b; --stage-ink: #d5dce3; --accent: #86b6df; --m1: #3987e5; --m2: #d95926;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f141a; --paper: #161c24; --ink: #e5eaef; --mute: #98a4b1; --line: #28313b;
+  --stage: #1b222b; --stage-ink: #d5dce3; --accent: #86b6df; --m1: #3987e5; --m2: #d95926;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 16px; line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 72px;
+}
+.wrap { max-width: 1120px; margin: 0 auto; display: grid; gap: 72px; }
+h1, h2, h3 { font-family: var(--f-display); font-weight: 500; text-wrap: balance; margin: 0; letter-spacing: -0.01em; }
+h1 { font-size: clamp(2.1rem, 5vw, 3.4rem); line-height: 1.08; max-width: 18ch; }
+h2 { font-size: clamp(1.6rem, 3vw, 2.15rem); line-height: 1.15; }
+h3 { font-size: 1.2rem; line-height: 1.25; }
+p { margin: 0; max-width: 62ch; }
+.eyebrow { font-family: var(--f-mono); font-size: 0.75rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); }
+.mute { color: var(--mute); }
+.small { font-size: 0.875rem; }
+.mono { font-family: var(--f-mono); }
+section { display: grid; gap: 22px; min-width: 0; }
+.head { display: grid; gap: 10px; }
+
+/* hero */
+header.hero { padding-top: 56px; display: grid; gap: 18px; }
+.hero p.lede { font-size: 1.15rem; color: var(--mute); max-width: 52ch; }
+.facts { display: flex; flex-wrap: wrap; gap: 12px 36px; margin-top: 8px; }
+.fact { display: grid; gap: 2px; }
+.fact b { font-family: var(--f-display); font-weight: 500; font-size: 1.7rem; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.fact span { font-size: 0.85rem; color: var(--mute); }
+
+/* what changed */
+.change { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+.panel { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 22px; display: grid; gap: 14px; align-content: start; min-width: 0; }
+.big { font-family: var(--f-display); font-size: 2.6rem; line-height: 1; font-variant-numeric: tabular-nums; }
+.big small { font-size: 1.1rem; color: var(--mute); }
+.bar { display: flex; height: 14px; border-radius: 4px; overflow: hidden; background: var(--line); gap: 2px; }
+.bar i { display: block; height: 100%; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 0.82rem; color: var(--mute); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.models-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.tag { display: inline-flex; align-items: center; gap: 8px; font-size: 0.9rem; padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; }
+.dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+
+/* architecture */
+.arch { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+.arch .panel { padding: 18px 18px 14px; }
+.arch svg { width: 100%; height: auto; display: block; }
+.arch .t { font-family: var(--f-body); font-size: 13px; fill: var(--ink); }
+.arch .ts { font-family: var(--f-body); font-size: 11px; fill: var(--mute); }
+.arch .box { fill: var(--bg); stroke: var(--line); stroke-width: 1.2; }
+.arch .net1 { fill: var(--paper); stroke: var(--m1); stroke-width: 1.6; }
+.arch .net2 { fill: var(--paper); stroke: var(--m2); stroke-width: 1.6; }
+.arch .ln { stroke: var(--mute); stroke-width: 1.4; fill: none; }
+.arch .lnd { stroke: var(--m2); stroke-width: 1.4; fill: none; stroke-dasharray: 3 3; }
+.arch .ah { fill: var(--mute); }
+.arch .ah2 { fill: var(--m2); }
+
+/* results stage */
+.stage { background: var(--stage); color: var(--stage-ink); border-radius: 14px; padding: 18px; display: grid; gap: 18px; min-width: 0; }
+.picker { display: flex; flex-wrap: wrap; gap: 8px; }
+.picker button {
+  font: inherit; font-size: 0.86rem; color: var(--stage-ink); background: transparent; border: 1px solid color-mix(in srgb, var(--stage-ink) 25%, transparent);
+  border-radius: 999px; padding: 6px 13px; cursor: pointer; display: inline-flex; gap: 8px; align-items: baseline;
+}
+.picker button .mono { font-size: 0.72rem; opacity: 0.7; }
+.picker button[aria-pressed="true"] { background: var(--stage-ink); color: var(--stage); border-color: var(--stage-ink); }
+.picker button:focus-visible, .controls input:focus-visible, .controls button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.row { display: grid; gap: 12px; }
+.row.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.row.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 760px) { .row.three, .row.two { grid-template-columns: minmax(0, 1fr); } }
+figure.view { margin: 0; display: grid; gap: 6px; min-width: 0; }
+figure.view .cv { position: relative; aspect-ratio: 1 / 1; max-width: 100%; border-radius: 10px; overflow: hidden; background: var(--paper); }
+figure.view canvas { width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+figure.view figcaption { display: flex; justify-content: space-between; gap: 8px; font-size: 0.86rem; align-items: baseline; }
+figure.view figcaption b { font-weight: 600; display: inline-flex; gap: 7px; align-items: center; }
+figure.view figcaption .err { font-family: var(--f-mono); font-size: 0.78rem; opacity: 0.8; font-variant-numeric: tabular-nums; }
+.loading { position: absolute; inset: 0; display: grid; place-items: center; font-size: 0.85rem; color: var(--mute); pointer-events: none; }
+.sub { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px 24px; align-items: end; }
+.sub h3 { color: var(--stage-ink); }
+.cbar { display: grid; gap: 4px; min-width: 200px; max-width: 280px; flex: 1; }
+.cbar .g { height: 10px; border-radius: 3px; }
+.cbar .tk { display: flex; justify-content: space-between; font-family: var(--f-mono); font-size: 0.72rem; opacity: 0.85; font-variant-numeric: tabular-nums; }
+.controls { display: flex; flex-wrap: wrap; gap: 10px 20px; align-items: center; font-size: 0.86rem; }
+.controls label { display: inline-flex; gap: 10px; align-items: center; }
+.controls input[type=range] { width: min(240px, 60vw); accent-color: var(--accent); }
+.hint { font-size: 0.8rem; opacity: 0.75; }
+.casenote { font-size: 0.9rem; }
+.glegend { display: flex; flex-wrap: wrap; gap: 6px 16px; align-content: start; font-size: 0.86rem; min-width: 0; }
+.glegend span { display: inline-flex; align-items: center; gap: 6px; }
+.glegend i { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+.glegend p { flex-basis: 100%; margin-top: 4px; opacity: 0.85; }
+.glegend.concept svg { width: 100%; max-width: 320px; height: auto; }
+.concept .d { fill: var(--stage-ink); opacity: 0.55; }
+.concept .dn { fill: var(--inlet); }
+.concept .ar { fill: none; stroke: var(--inlet); stroke-width: 1.2; opacity: 0.55; }
+button.play { font: inherit; font-size: 0.8rem; color: var(--stage-ink); background: transparent; border: 1px solid color-mix(in srgb, var(--stage-ink) 30%, transparent); border-radius: 999px; padding: 3px 10px; cursor: pointer; }
+button.play:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* accuracy table */
+.tblwrap { overflow-x: auto; background: var(--paper); border: 1px solid var(--line); border-radius: 10px; }
+table { border-collapse: collapse; width: 100%; min-width: 760px; font-variant-numeric: tabular-nums; }
+th, td { padding: 11px 14px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: middle; }
+tbody tr:last-child td { border-bottom: 0; }
+thead th { font-size: 0.78rem; font-weight: 500; color: var(--mute); letter-spacing: 0.02em; }
+thead tr.grp th { font-size: 0.85rem; color: var(--ink); font-weight: 600; border-bottom: 0; padding-bottom: 2px; }
+thead tr.grp th span.dot { margin-right: 7px; }
+td.type { font-weight: 500; }
+td.type .mute { display: block; font-weight: 400; font-size: 0.8rem; }
+tr.all td { background: color-mix(in srgb, var(--bg) 60%, transparent); }
+.cell { display: grid; gap: 5px; min-width: 92px; cursor: default; }
+.cell .v { font-size: 1.02rem; }
+.cell .v.train { color: var(--mute); font-size: 0.95rem; }
+.cell .track { height: 6px; background: var(--line); border-radius: 3px; position: relative; }
+.cell .track i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; }
+.cell .n { font-size: 0.74rem; color: var(--mute); }
+td.sep { border-left: 1px solid var(--line); }
+#tip { position: fixed; z-index: 20; pointer-events: none; background: var(--ink); color: var(--bg); font-size: 0.8rem; padding: 7px 10px; border-radius: 6px; max-width: 260px; line-height: 1.4; }
+.notes { display: grid; gap: 6px; font-size: 0.85rem; color: var(--mute); }
+footer { font-size: 0.8rem; color: var(--mute); display: grid; gap: 4px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="eyebrow">AngioFlow · progress update</div>
+    <h1>Blood flow in brain aneurysms, predicted from the vessel shape</h1>
+    <p class="lede">Two AI models learn from flow simulations (CFD). Given a 3D vessel surface, they return wall shear stress and blood velocity in seconds. Below, they are shown on patients they never saw in training.</p>
+    <div class="facts">
+      <div class="fact"><b>605</b><span>real patient aneurysms (AngioFlow)</span></div>
+      <div class="fact"><b>~1,200</b><span>synthetic aneurysms added in training</span></div>
+      <div class="fact"><b>1–2 s</b><span>per prediction on one GPU</span></div>
+    </div>
+  </header>
+
+  <section id="changes">
+    <div class="head">
+      <div class="eyebrow">Since the last update</div>
+      <h2>We fixed the data, then retrained</h2>
+    </div>
+    <div class="change">
+      <div class="panel">
+        <div class="big">166 <small>of 606 patients</small></div>
+        <p>Simulations re-run after a quality check.</p>
+        <div class="bar" role="img" aria-label="Of 606 AngioFlow cases: 102 re-run for a wrong outlet flow split, 58 for both problems, 6 for a rough wall, 440 unchanged">
+          <i style="width:16.83%;background:var(--m1)"></i><i style="width:9.57%;background:var(--m2)"></i><i style="width:0.99%;background:#1baf7a"></i>
+        </div>
+        <div class="legend">
+          <span><i style="background:var(--m1)"></i>Wrong outflow split · 102</span>
+          <span><i style="background:var(--m2)"></i>Both · 58</span>
+          <span><i style="background:#1baf7a"></i>Rough wall · 6</span>
+          <span><i style="background:var(--line)"></i>Unchanged · 440</span>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>What was wrong</h3>
+        <p class="small"><b>Outflow split:</b> blood was divided between the two outlets with the wrong ratio (160 cases).</p>
+        <p class="small"><b>Rough wall:</b> scan noise left bumps on the vessel surface that distort shear stress (64 cases). These walls were smoothed first.</p>
+      </div>
+      <div class="panel">
+        <h3>Two models, retrained</h3>
+        <div class="models-row">
+          <span class="tag"><span class="dot" style="background:var(--m1)"></span>WSS-only model</span>
+          <span class="tag"><span class="dot" style="background:var(--m2)"></span>Dual-branch model</span>
+        </div>
+        <p class="small mute">The dual-branch model adds blood velocity inside the vessel. It is still training; this page shows its current best version.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="aneug">
+    <div class="head">
+      <div class="eyebrow">Since the last update</div>
+      <h2>500+ new synthetic aneurysms</h2>
+      <p class="mute">Our generative model, AneuG, draws aneurysm shapes that do not come from any patient. Version 2 builds each one in two learned steps, shown below on generated shapes.</p>
+      <p class="mute small">Also new: when real aneurysms are fitted for training, the template's openings no longer have to land exactly on the patient's openings.</p>
+    </div>
+    <div class="stage">
+      <div class="picker" id="gpicker" role="group" aria-label="Choose a generated aneurysm"></div>
+      <div class="row two">
+        <figure class="view"><div class="cv"><canvas id="g0"></canvas><div class="loading">Loading…</div></div>
+          <figcaption><b>1 · Graph transformer finds the parts</b></figcaption></figure>
+        <figure class="view"><div class="cv"><canvas id="g1"></canvas><div class="loading">Loading…</div></div>
+          <figcaption><b>2 · Point transformer grows the vessels</b>
+            <button type="button" id="grow" class="play">Play again</button></figcaption></figure>
+      </div>
+      <div class="row two">
+        <div class="glegend">
+          <span><i style="background:var(--dome)"></i>Aneurysm dome</span>
+          <span><i style="background:var(--inlet)"></i>Inlet</span>
+          <span><i style="background:var(--out1)"></i>Outlet</span>
+          <span><i style="background:var(--out2)"></i>Second outlet</span>
+          <p class="small">It labels the dome and every opening, then cuts the openings so vessels can be attached.</p>
+        </div>
+        <div class="glegend concept">
+          <svg viewBox="0 0 300 70" role="img" aria-label="A row of points; the newest point has arcs back to every earlier point">
+            <g id="arcs"></g><g id="dots"></g>
+          </svg>
+          <p class="small">The centerline is drawn one point at a time. Each new point looks back at every point before it, so the branches come out longer and more natural, ready to be turned into tubes and merged with the dome.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="models">
+    <div class="head">
+      <div class="eyebrow">How the models work</div>
+      <h2>Shape in, flow out</h2>
+    </div>
+    <div class="arch">
+      <div class="panel">
+        <div style="display:flex;gap:8px;align-items:center"><span class="dot" style="background:var(--m1)"></span><h3>WSS-only model</h3></div>
+        <svg viewBox="0 0 440 190" role="img" aria-label="Vessel surface goes into a graph network, which outputs wall shear stress on the surface">
+          <defs>
+            <marker id="a1" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z" class="ah"/></marker>
+          </defs>
+          <rect class="box" x="6" y="62" width="110" height="64" rx="8"/>
+          <text class="t" x="61" y="90" text-anchor="middle">Vessel surface</text>
+          <text class="ts" x="61" y="108" text-anchor="middle">3D mesh</text>
+          <rect class="net1" x="160" y="44" width="124" height="100" rx="10"/>
+          <text class="t" x="222" y="74" text-anchor="middle">Graph network</text>
+          <text class="ts" x="222" y="96" text-anchor="middle">local wall detail</text>
+          <text class="ts" x="222" y="112" text-anchor="middle">+ whole-vessel view</text>
+          <rect class="box" x="326" y="62" width="108" height="64" rx="8"/>
+          <text class="t" x="380" y="90" text-anchor="middle">Wall shear</text>
+          <text class="t" x="380" y="106" text-anchor="middle">stress</text>
+          <path class="ln" d="M116,94 H156" marker-end="url(#a1)"/>
+          <path class="ln" d="M284,94 H322" marker-end="url(#a1)"/>
+          <rect class="box" x="160" y="160" width="124" height="26" rx="6"/>
+          <text class="ts" x="222" y="177" text-anchor="middle">inflow + outlet split</text>
+          <path class="ln" d="M222,160 V148" marker-end="url(#a1)"/>
+        </svg>
+        <p class="small mute">One value per point on the vessel wall.</p>
+      </div>
+      <div class="panel">
+        <div style="display:flex;gap:8px;align-items:center"><span class="dot" style="background:var(--m2)"></span><h3>Dual-branch model</h3></div>
+        <svg viewBox="0 0 440 190" role="img" aria-label="Vessel surface goes into a shape encoder, which feeds a wall branch for wall shear stress and a lumen branch for blood velocity; the two branches exchange information">
+          <defs>
+            <marker id="a2" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z" class="ah"/></marker>
+            <marker id="a3" viewBox="0 0 8 8" refX="4" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L8,4 L0,8 z" class="ah2"/></marker>
+          </defs>
+          <rect class="box" x="6" y="62" width="96" height="64" rx="8"/>
+          <text class="t" x="54" y="90" text-anchor="middle">Vessel</text>
+          <text class="t" x="54" y="106" text-anchor="middle">surface</text>
+          <rect class="net2" x="128" y="62" width="96" height="64" rx="10"/>
+          <text class="t" x="176" y="90" text-anchor="middle">Shape</text>
+          <text class="t" x="176" y="106" text-anchor="middle">encoder</text>
+          <rect class="net2" x="252" y="14" width="74" height="54" rx="8"/>
+          <text class="t" x="289" y="38" text-anchor="middle">Wall</text>
+          <text class="ts" x="289" y="54" text-anchor="middle">branch</text>
+          <rect class="net2" x="252" y="120" width="74" height="54" rx="8"/>
+          <text class="t" x="289" y="144" text-anchor="middle">Lumen</text>
+          <text class="ts" x="289" y="160" text-anchor="middle">branch</text>
+          <rect class="box" x="350" y="14" width="84" height="54" rx="8"/>
+          <text class="t" x="392" y="37" text-anchor="middle">Wall shear</text>
+          <text class="t" x="392" y="53" text-anchor="middle">stress</text>
+          <rect class="box" x="350" y="120" width="84" height="54" rx="8"/>
+          <text class="t" x="392" y="143" text-anchor="middle">Blood</text>
+          <text class="t" x="392" y="159" text-anchor="middle">velocity</text>
+          <path class="ln" d="M102,94 H124" marker-end="url(#a2)"/>
+          <path class="ln" d="M224,84 C238,84 236,41 248,41" marker-end="url(#a2)"/>
+          <path class="ln" d="M224,104 C238,104 236,147 248,147" marker-end="url(#a2)"/>
+          <path class="ln" d="M326,41 H346" marker-end="url(#a2)"/>
+          <path class="ln" d="M326,147 H346" marker-end="url(#a2)"/>
+          <path class="lnd" d="M289,74 V114" marker-start="url(#a3)" marker-end="url(#a3)"/>
+          <text class="ts" x="298" y="98">share</text>
+        </svg>
+        <p class="small mute">Same wall output, plus velocity at any point inside the vessel.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="results">
+    <div class="head">
+      <div class="eyebrow">Predictions on unseen patients</div>
+      <h2>CFD next to the models</h2>
+      <p class="mute small">Real AngioFlow test patients, two per aneurysm type, chosen as typical (near the median error), not the best. Drag to rotate, scroll to zoom. Views stay in step.</p>
+    </div>
+    <div class="stage">
+      <div class="picker" id="picker" role="group" aria-label="Choose a patient"></div>
+      <p class="casenote" id="casenote">Loading cases…</p>
+
+      <div class="sub">
+        <h3>Wall shear stress</h3>
+        <div class="cbar" aria-label="Wall shear stress colour scale">
+          <div class="g" id="cbarW"></div>
+          <div class="tk" id="tkW"><span>0</span><span></span><span></span></div>
+        </div>
+      </div>
+      <div class="row three">
+        <figure class="view"><div class="cv"><canvas id="w0"></canvas><div class="loading">Loading…</div></div>
+          <figcaption><b>CFD simulation</b><span class="err">reference</span></figcaption></figure>
+        <figure class="view"><div class="cv"><canvas id="w1"></canvas><div class="loading">Loading…</div></div>
+          <figcaption><b><span class="dot" style="background:var(--m1)"></span>WSS-only model</b><span class="err" id="e1"></span></figcaption></figure>
+        <figure class="view"><div class="cv"><canvas id="w2"></canvas><div class="loading">Loading…</div></div>
+          <figcaption><b><span class="dot" style="background:var(--m2)"></span>Dual-branch model</b><span class="err" id="e2"></span></figcaption></figure>
+      </div>
+
+      <div class="sub">
+        <h3>Blood velocity, one slice</h3>
+        <div class="cbar" aria-label="Blood speed colour scale">
+          <div class="g" id="cbarV"></div>
+          <div class="tk" id="tkV"><span>0</span><span></span><span></span></div>
+        </div>
+      </div>
+      <div class="controls">
+        <label for="slice">Slice depth <input id="slice" type="range" min="-1" max="1" step="0.01" value="0"></label>
+        <label for="allpts"><input id="allpts" type="checkbox"> Show every point</label>
+        <span class="hint">The slice faces you; rotate to cut another way.</span>
+      </div>
+      <div class="row two">
+        <figure class="view"><div class="cv"><canvas id="v0"></canvas><div class="loading">Loading…</div></div>
+          <figcaption><b>CFD simulation</b><span class="err">reference</span></figcaption></figure>
+        <figure class="view"><div class="cv"><canvas id="v1"></canvas><div class="loading">Loading…</div></div>
+          <figcaption><b><span class="dot" style="background:var(--m2)"></span>Dual-branch model</b><span class="err" id="e3"></span></figcaption></figure>
+      </div>
+    </div>
+  </section>
+
+  <section id="accuracy">
+    <div class="head">
+      <div class="eyebrow">Accuracy</div>
+      <h2>Error against CFD, by aneurysm type</h2>
+      <p class="mute small">Error is the size of the difference from CFD relative to the CFD field: 0% is a perfect match. Average over patients. Bold is test (unseen) patients; grey is training patients. Hover a value for its spread.</p>
+    </div>
+    <div class="tblwrap">
+      <table id="tbl">
+        <thead>
+          <tr class="grp">
+            <th></th>
+            <th class="sep" colspan="2"><span class="dot" style="background:var(--m1)"></span>WSS-only model</th>
+            <th class="sep" colspan="4"><span class="dot" style="background:var(--m2)"></span>Dual-branch model</th>
+          </tr>
+          <tr>
+            <th>Aneurysm type</th>
+            <th class="sep">Wall shear stress<br>test</th><th>train</th>
+            <th class="sep">Wall shear stress<br>test</th><th>train</th>
+            <th class="sep">Blood velocity<br>test</th><th>train</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"><tr><td colspan="7" class="mute">Loading…</td></tr></tbody>
+      </table>
+    </div>
+    <div class="notes">
+      <p id="splitnote"></p>
+      <p>Each model was tested on its own held-out patients, so the two test groups are not identical. Type 2 has few test patients, so its numbers move more.</p>
+    </div>
+  </section>
+
+  <footer>
+    <span id="foot"></span>
+    <span>Predictions on the region around the aneurysm that the models were trained on (aneurysm plus nearby vessel).</span>
+    <span><a href="https://claude.ai/artifact/1YTPQexMHMiqxBSk3t8X5H" style="color:var(--accent)">Also new: growing aneurysms on healthy vessels →</a></span>
+  </footer>
+</div>
+<div id="tip" hidden></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(() => {
+const TYPE = {0: "Bifurcation", 1: "Sidewall", 2: "Sidewall near a bifurcation"};
+const TYPE_SHORT = {0: "Bifurcation", 1: "Sidewall", 2: "Sidewall + bifurcation"};
+// perceptual sequential ramps (lightness rises monotonically)
+const PLASMA = ["#0d0887","#41049d","#6a00a8","#8f0da4","#b12a90","#cc4778","#e16462","#f2844b","#fca636","#fcce25","#f0f921"];
+const VIRIDIS = ["#440154","#482878","#3e4989","#31688e","#26828e","#1f9e89","#35b779","#6ece58","#b5de2b","#fde725"];
+const hex = h => [1,3,5].map(i => parseInt(h.slice(i, i + 2), 16) / 255);
+const ramp = stops => { const s = stops.map(hex); return t => {
+  t = Math.min(1, Math.max(0, t)) * (s.length - 1); const i = Math.min(s.length - 2, Math.floor(t)), f = t - i;
+  return [0,1,2].map(k => s[i][k] + (s[i + 1][k] - s[i][k]) * f); }; };
+const cW = ramp(PLASMA), cV = ramp(VIRIDIS);
+document.getElementById("cbarW").style.background = `linear-gradient(90deg, ${PLASMA.join(",")})`;
+document.getElementById("cbarV").style.background = `linear-gradient(90deg, ${VIRIDIS.join(",")})`;
+const pct = x => `${Math.round(x * 100)}%`;
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+// ---------------------------------------------------------------- viewers
+class Viewer {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.renderer = new THREE.WebGLRenderer({canvas, antialias: true, alpha: true});
+    this.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    this.scene = new THREE.Scene();
+    this.camera = new THREE.PerspectiveCamera(30, 1, 0.1, 1000);
+    this.scene.add(this.camera);
+    this.scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+    const key = new THREE.DirectionalLight(0xffffff, 0.65); key.position.set(0.4, 0.6, 1); this.camera.add(key);
+    const fill = new THREE.DirectionalLight(0xffffff, 0.25); fill.position.set(-0.6, -0.3, 0.4); this.camera.add(fill);
+    this.controls = new THREE.OrbitControls(this.camera, canvas);
+    this.controls.rotateSpeed = 0.8;
+    this.objects = [];
+    this.peers = [];
+    this.onRender = null;
+    new ResizeObserver(() => this.resize()).observe(canvas.parentElement);
+    this.controls.addEventListener("change", () => { this.sync(); });
+  }
+  resize() {
+    const r = this.canvas.parentElement.getBoundingClientRect();
+    if (!r.width) return;
+    this.renderer.setSize(r.width, r.height, false);
+    this.camera.aspect = r.width / r.height; this.camera.updateProjectionMatrix();
+    this.pxScale = r.height * this.renderer.getPixelRatio() / (2 * Math.tan(this.camera.fov * Math.PI / 360));
+    this.render();
+  }
+  set(objs) {
+    for (const o of this.objects) this.scene.remove(o);
+    this.objects = objs; for (const o of objs) this.scene.add(o);
+    this.canvas.parentElement.querySelector(".loading").hidden = true;
+  }
+  fit(radius) {
+    const d = radius / Math.sin(this.camera.fov * Math.PI / 360) * 1.02;
+    this.camera.position.set(0, 0, d); this.camera.up.set(0, 1, 0);
+    this.controls.target.set(0, 0, 0); this.camera.near = d / 100; this.camera.far = d * 10;
+    this.camera.updateProjectionMatrix(); this.controls.update();
+  }
+  sync() {
+    if (Viewer.syncing) return;
+    Viewer.syncing = true;
+    for (const p of this.peers) {
+      p.camera.position.copy(this.camera.position); p.camera.quaternion.copy(this.camera.quaternion);
+      p.camera.up.copy(this.camera.up); p.controls.target.copy(this.controls.target); p.controls.update();
+    }
+    Viewer.syncing = false;
+    for (const v of [this, ...this.peers]) v.render();
+  }
+  render() {
+    if (this.onRender) this.onRender(this);
+    this.renderer.render(this.scene, this.camera);
+  }
+}
+const group = ids => { const vs = ids.map(id => new Viewer(document.getElementById(id))); for (const v of vs) v.peers = vs.filter(o => o !== v); return vs; };
+const W = group(["w0", "w1", "w2"]), V = group(["v0", "v1"]);
+
+// lumen points: a slab through the target, facing the camera
+const pointMat = () => new THREE.ShaderMaterial({
+  uniforms: {uN: {value: new THREE.Vector3(0, 0, 1)}, uC: {value: new THREE.Vector3()}, uD: {value: 0}, uH: {value: 0.6},
+             uAll: {value: 0}, uSize: {value: 0.16}, uScale: {value: 400}},
+  vertexShader: `attribute vec3 color; varying vec3 vC; varying float vD; uniform vec3 uN, uC; uniform float uD, uSize, uScale;
+    void main(){ vC = color; vD = dot(position - uC, uN) - uD; vec4 mv = modelViewMatrix * vec4(position, 1.0);
+      gl_PointSize = max(1.5, uSize * uScale / -mv.z); gl_Position = projectionMatrix * mv; }`,
+  fragmentShader: `varying vec3 vC; varying float vD; uniform float uH, uAll;
+    void main(){ if (uAll < 0.5 && abs(vD) > uH) discard; vec2 q = gl_PointCoord - 0.5; if (dot(q, q) > 0.25) discard;
+      gl_FragColor = vec4(vC, 1.0); }`,
+});
+let ptsRadius = 1;
+const sliceEl = document.getElementById("slice"), allEl = document.getElementById("allpts");
+function updatePoints(v) {
+  const m = v.objects.find(o => o.isPoints); if (!m) return;
+  const u = m.material.uniforms;
+  u.uN.value.copy(v.camera.position).sub(v.controls.target).normalize();
+  u.uC.value.copy(v.controls.target);
+  u.uD.value = parseFloat(sliceEl.value) * ptsRadius;
+  u.uAll.value = allEl.checked ? 1 : 0;
+  u.uScale.value = v.pxScale || 400;
+}
+for (const v of V) v.onRender = updatePoints;
+sliceEl.addEventListener("input", () => V.forEach(v => v.render()));
+allEl.addEventListener("change", () => V.forEach(v => v.render()));
+
+// ---------------------------------------------------------------- data
+let cases = [], cache = {};
+// case files are binary arrays shipped as base64 text
+async function fetchBin(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`${url}: ${r.status}`);
+  const s = atob((await r.text()).trim()), out = new Uint8Array(s.length);
+  for (let i = 0; i < s.length; i++) out[i] = s.charCodeAt(i);
+  return out.buffer;
+}
+const LAYOUT = c => {
+  let o = 0; const take = (T, n) => { const a = [T, o, n]; o += n * T.BYTES_PER_ELEMENT; return a; };
+  return {verts: take(Float32Array, c.nv * 3), faces: take(Uint32Array, c.nf * 3), wss_cfd: take(Float32Array, c.nv),
+          wss_wssonly: take(Float32Array, c.nv), wss_joint: take(Float32Array, c.nv),
+          focused: take(Uint8Array, Math.ceil(c.nv / 4) * 4), pts: take(Float32Array, c.np * 3),
+          vel_cfd: take(Float32Array, c.np * 3), vel_joint: take(Float32Array, c.np * 3)};
+};
+async function loadCase(c) {
+  if (cache[c.case]) return cache[c.case];
+  const buf = await fetchBin(`data/viz/${c.case}.b64.txt`);
+  const d = {}; for (const [k, [T, off, n]] of Object.entries(LAYOUT(c))) d[k] = new T(buf, off, n);
+  return (cache[c.case] = d);
+}
+function colours(vals, cmap, max, stride = 1) {
+  const n = vals.length / stride, out = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) {
+    let x = vals[i];
+    if (stride === 3) x = Math.hypot(vals[3 * i], vals[3 * i + 1], vals[3 * i + 2]);
+    const c = cmap(x / max); out[3 * i] = c[0]; out[3 * i + 1] = c[1]; out[3 * i + 2] = c[2];
+  }
+  return new THREE.BufferAttribute(out, 3);
+}
+const tick = v => v >= 10 ? v.toFixed(0) : v >= 1 ? v.toFixed(1) : v.toFixed(2);
+async function show(i) {
+  const c = cases[i];
+  document.querySelectorAll("#picker button").forEach((b, j) => b.setAttribute("aria-pressed", j === i ? "true" : "false"));
+  document.querySelectorAll(".loading").forEach(l => l.hidden = false);
+  const d = await loadCase(c);
+  const pos = new THREE.BufferAttribute(d.verts, 3), idx = new THREE.BufferAttribute(d.faces, 1);
+  const base = new THREE.BufferGeometry(); base.setAttribute("position", pos); base.setIndex(idx); base.computeVertexNormals();
+  base.computeBoundingSphere();
+  const R = base.boundingSphere.radius;
+  const wmax = c.wss_p99, vmax = c.vel_p99;
+  const wall = key => {
+    const g = new THREE.BufferGeometry(); g.setAttribute("position", pos); g.setIndex(idx);
+    g.setAttribute("normal", base.getAttribute("normal")); g.setAttribute("color", colours(d[key], cW, wmax));
+    return new THREE.Mesh(g, new THREE.MeshLambertMaterial({vertexColors: true, side: THREE.DoubleSide}));
+  };
+  ["wss_cfd", "wss_wssonly", "wss_joint"].forEach((k, j) => { W[j].set([wall(k)]); W[j].fit(R); });
+  const ppos = new THREE.BufferAttribute(d.pts, 3);
+  const pts = key => { const g = new THREE.BufferGeometry(); g.setAttribute("position", ppos);
+    g.setAttribute("color", colours(d[key], cV, vmax, 3)); return new THREE.Points(g, pointMat()); };
+  const ghost = () => new THREE.Mesh(base, new THREE.MeshLambertMaterial({color: 0x9aa4b0, transparent: true, opacity: 0.16, depthWrite: false, side: THREE.DoubleSide}));
+  let r2 = 0; for (let k = 0; k < c.np; k++) r2 = Math.max(r2, d.pts[3 * k] ** 2 + d.pts[3 * k + 1] ** 2 + d.pts[3 * k + 2] ** 2);
+  ptsRadius = Math.sqrt(r2);
+  ["vel_cfd", "vel_joint"].forEach((k, j) => { V[j].set([pts(k), ghost()]); V[j].fit(R); });
+  [...W, ...V].forEach(v => { v.resize(); v.render(); });
+  document.getElementById("tkW").innerHTML = `<span>0</span><span>${tick(wmax / 2)}</span><span>${tick(wmax)} Pa</span>`;
+  document.getElementById("tkV").innerHTML = `<span>0</span><span>${tick(vmax / 2)}</span><span>${tick(vmax)} m/s</span>`;
+  document.getElementById("e1").textContent = `error ${pct(c.wss_rel_l2_wssonly)}`;
+  document.getElementById("e2").textContent = `error ${pct(c.wss_rel_l2_joint)}`;
+  document.getElementById("e3").textContent = `error ${pct(c.vel_rel_l2_joint)}`;
+  document.getElementById("casenote").innerHTML =
+    `<b>${TYPE[c.aneurysm_type]}</b> aneurysm · region shown about ${Math.round(c.extent_mm)} mm across · <span class="mono small">${c.case.replace(/_aneurysm\d+$/, "")}</span>`;
+}
+
+// ---------------------------------------------------------------- table
+const tip = document.getElementById("tip");
+function cell(g, key, model, train) {
+  if (!g || !g[key]) return `<td class="${train ? "" : "sep"}"><span class="mute">–</span></td>`;
+  const s = g[key], w = Math.min(100, s.mean / 0.6 * 100);
+  const t = `${train ? "Training" : "Test"} patients: ${g.n}. Mean ${pct(s.mean)}, median ${pct(s.median)}, middle half ${pct(s.p25)}–${pct(s.p75)}.`;
+  return `<td class="${train ? "" : "sep"}"><div class="cell" tabindex="0" data-tip="${t}">
+    <span class="v ${train ? "train" : ""}">${train ? pct(s.mean) : `<b>${pct(s.mean)}</b>`}</span>
+    <span class="track"><i style="width:${w}%;background:var(${model});opacity:${train ? 0.45 : 1}"></i></span>
+    <span class="n">n = ${g.n}</span></div></td>`;
+}
+function table(sum) {
+  const A = sum.models.wss.groups, B = sum.models.joint.groups;
+  const rows = [["all", "All types", ""], ["0", TYPE[0], "type 0"], ["1", TYPE[1], "type 1"], ["2", TYPE[2], "type 2"]];
+  document.getElementById("tbody").innerHTML = rows.map(([k, name, sub]) => `<tr class="${k === "all" ? "all" : ""}">
+    <td class="type">${name}${sub ? `<span class="mute">${sub}</span>` : ""}</td>
+    ${cell(A["test/" + k], "wss_rel_l2", "--m1", false)}${cell(A["train/" + k], "wss_rel_l2", "--m1", true)}
+    ${cell(B["test/" + k], "wss_rel_l2", "--m2", false)}${cell(B["train/" + k], "wss_rel_l2", "--m2", true)}
+    ${cell(B["test/" + k], "vel_rel_l2", "--m2", false)}${cell(B["train/" + k], "vel_rel_l2", "--m2", true)}</tr>`).join("");
+  document.getElementById("splitnote").textContent =
+    `WSS-only model: ${A["test/all"].n} test and ${A["train/all"].n} training patients. Dual-branch model: ${B["test/all"].n} test and ${B["train/all"].n} training patients.`;
+  document.getElementById("foot").textContent =
+    `Checkpoints: WSS-only model epoch ${sum.models.wss.epoch}; dual-branch model epoch ${sum.models.joint.epoch} (training continues).`;
+  const move = (e, el) => { tip.textContent = el.dataset.tip; tip.hidden = false;
+    const r = el.getBoundingClientRect(); const x = Math.min(window.innerWidth - 270, r.left), y = r.bottom + 8;
+    tip.style.left = `${Math.max(8, x)}px`; tip.style.top = `${y}px`; };
+  document.querySelectorAll(".cell").forEach(el => {
+    el.addEventListener("mouseenter", e => move(e, el)); el.addEventListener("focus", e => move(e, el));
+    el.addEventListener("mouseleave", () => tip.hidden = true); el.addEventListener("blur", () => tip.hidden = true);
+  });
+  window.addEventListener("scroll", () => tip.hidden = true, {passive: true});
+}
+
+// ---------------------------------------------------------------- AneuG v2
+const G = group(["g0", "g1"]);
+const PART = ["#c9ced6", css("--dome"), css("--inlet"), css("--out1"), css("--out2")].map(h => new THREE.Color(h));
+let gcases = [], gcache = {}, growAnim = null;
+const GLAYOUT = c => {
+  let o = 0; const take = (T, n) => { const a = [T, o, n]; o += n * T.BYTES_PER_ELEMENT; return a; };
+  return {verts: take(Float32Array, c.nv * 3), faces: take(Uint32Array, c.nf * 3), label: take(Uint8Array, Math.ceil(c.nv / 4) * 4),
+          keep: take(Uint8Array, Math.ceil(c.nf / 4) * 4), curve: take(Float32Array, c.nb * c.n * 3)};
+};
+async function loadG(c) {
+  if (gcache[c.case]) return gcache[c.case];
+  const buf = await fetchBin(`data/aneug/${c.case}.b64.txt`);
+  const d = {}; for (const [k, [T, off, n]] of Object.entries(GLAYOUT(c))) d[k] = new T(buf, off, n);
+  return (gcache[c.case] = d);
+}
+// concept strip: newest point looks back at all earlier ones
+(() => {
+  const n = 9, x = i => 16 + i * 33, y = 52;
+  document.getElementById("dots").innerHTML = Array.from({length: n}, (_, i) =>
+    `<circle cx="${x(i)}" cy="${y}" r="${i === n - 1 ? 6 : 4.5}" class="${i === n - 1 ? "dn" : "d"}"/>`).join("");
+  document.getElementById("arcs").innerHTML = Array.from({length: n - 1}, (_, i) => {
+    const a = x(i), b = x(n - 1), h = 8 + (b - a) * 0.17;
+    return `<path class="ar" d="M${b},${y - 6} C${b},${y - 6 - h} ${a},${y - 4 - h} ${a},${y - 5}"/>`; }).join("");
+})();
+const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+async function showG(i) {
+  const c = gcases[i];
+  document.querySelectorAll("#gpicker button").forEach((b, j) => b.setAttribute("aria-pressed", j === i ? "true" : "false"));
+  const d = await loadG(c);
+  const pos = new THREE.BufferAttribute(d.verts, 3);
+  const col = new Float32Array(c.nv * 3);
+  for (let k = 0; k < c.nv; k++) { const p = PART[d.label[k]]; col[3 * k] = p.r; col[3 * k + 1] = p.g; col[3 * k + 2] = p.b; }
+  const full = new THREE.BufferGeometry(); full.setAttribute("position", pos); full.setIndex(new THREE.BufferAttribute(d.faces, 1));
+  full.setAttribute("color", new THREE.BufferAttribute(col, 3)); full.computeVertexNormals();
+  const kept = []; for (let f = 0; f < c.nf; f++) if (d.keep[f]) kept.push(d.faces[3 * f], d.faces[3 * f + 1], d.faces[3 * f + 2]);
+  const open = new THREE.BufferGeometry(); open.setAttribute("position", pos); open.setIndex(kept);
+  open.setAttribute("normal", full.getAttribute("normal"));
+  const mat = new THREE.MeshLambertMaterial({vertexColors: true, side: THREE.DoubleSide});
+  // curves, in generation order: inlet first, then the outlets (one token sequence)
+  const seq = [], seqCol = [];
+  for (let b = 0; b < c.nb; b++) for (let k = 0; k < c.n; k++) {
+    const o = (b * c.n + k) * 3; if (Number.isNaN(d.curve[o])) continue;
+    seq.push([d.curve[o], d.curve[o + 1], d.curve[o + 2], b]);
+  }
+  const lines = [];
+  for (let b = 0; b < c.nb; b++) {
+    const pts = seq.filter(p => p[3] === b), g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(pts.flatMap(p => p.slice(0, 3))), 3));
+    lines.push(new THREE.Line(g, new THREE.LineBasicMaterial({color: PART[2 + b]})));
+  }
+  const pts = new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({size: 0.28, vertexColors: true}));
+  const back = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({color: PART[2], transparent: true, opacity: 0.35}));
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 8), new THREE.MeshBasicMaterial({color: 0xffffff}));
+  const wall = new THREE.Mesh(open, new THREE.MeshLambertMaterial({color: 0xc9ced6, side: THREE.DoubleSide}));
+  G[0].set([new THREE.Mesh(full, mat)]);
+  G[1].set([wall, ...lines, pts, back, head]);
+  let R = 0; for (const p of seq) R = Math.max(R, Math.hypot(p[0], p[1], p[2]));
+  full.computeBoundingSphere(); R = Math.max(R, full.boundingSphere.radius);
+  G.forEach(v => { v.fit(R * 0.92); v.resize(); });
+  // growth: show the first m points of the sequence, newest point linked back to earlier ones
+  const pp = new Float32Array(seq.length * 3), pc = new Float32Array(seq.length * 3);
+  seq.forEach((p, k) => { pp.set(p.slice(0, 3), 3 * k); const q = PART[2 + p[3]]; pc.set([q.r, q.g, q.b], 3 * k); });
+  pts.geometry.setAttribute("position", new THREE.BufferAttribute(pp, 3));
+  pts.geometry.setAttribute("color", new THREE.BufferAttribute(pc, 3));
+  const setM = m => {
+    let drawn = 0;
+    for (let b = 0; b < c.nb; b++) { const nb = seq.filter((p, k) => p[3] === b && k < m).length; lines[b].geometry.setDrawRange(0, nb); drawn += nb; }
+    pts.geometry.setDrawRange(0, m);
+    const growing = m < seq.length;
+    head.visible = back.visible = growing && m > 0;
+    if (growing && m > 0) {
+      const cur = seq[m - 1], seg = [];
+      for (let k = 0; k < m - 1; k += 3) seg.push(cur[0], cur[1], cur[2], seq[k][0], seq[k][1], seq[k][2]);
+      back.geometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array(seg), 3));
+      back.material.color = PART[2 + cur[3]];
+      head.position.set(cur[0], cur[1], cur[2]);
+    }
+    G[1].render();
+  };
+  if (growAnim) cancelAnimationFrame(growAnim);
+  setM(seq.length);
+  const play = () => {
+    if (growAnim) cancelAnimationFrame(growAnim);
+    const t0 = performance.now(), dur = 6000;
+    const step = now => { const m = Math.min(seq.length, Math.round((now - t0) / dur * seq.length));
+      setM(m); growAnim = m < seq.length ? requestAnimationFrame(step) : null; };
+    growAnim = requestAnimationFrame(step);
+  };
+  document.getElementById("grow").onclick = play;
+  G[0].render();
+  return play;
+}
+
+// ---------------------------------------------------------------- boot
+(async () => {
+  gcases = (await fetch("data/aneug/cases.json").then(r => r.json())).cases;
+  const count = {};
+  document.getElementById("gpicker").innerHTML = gcases.map((c, i) => {
+    count[c.aneurysm_type] = (count[c.aneurysm_type] || 0) + 1;
+    return `<button type="button" id="gcase-${i}" aria-pressed="false">${TYPE_SHORT[c.aneurysm_type]} ${count[c.aneurysm_type]}</button>`;
+  }).join("");
+  document.querySelectorAll("#gpicker button").forEach((b, i) => b.addEventListener("click", () => showG(i).then(p => reduceMotion || p())));
+  const play = await showG(0);
+  if (!reduceMotion && "IntersectionObserver" in window) {
+    const io = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { io.disconnect(); play(); } }, {threshold: 0.4});
+    io.observe(document.getElementById("g1"));
+  }
+})().catch(e => console.warn("AneuG section", e));
+(async () => {
+  const [cj, sum] = await Promise.all([fetch("data/viz/cases.json").then(r => r.json()), fetch("data/summary.json").then(r => r.json())]);
+  table(sum);
+  cases = cj.cases;
+  const count = {};
+  document.getElementById("picker").innerHTML = cases.map((c, i) => {
+    count[c.aneurysm_type] = (count[c.aneurysm_type] || 0) + 1;
+    return `<button type="button" id="case-${i}" aria-pressed="false">${TYPE_SHORT[c.aneurysm_type]} ${count[c.aneurysm_type]}<span class="mono">${c.case.slice(0, 6)}</span></button>`;
+  }).join("");
+  document.querySelectorAll("#picker button").forEach((b, i) => b.addEventListener("click", () => show(i)));
+  show(0);
+})().catch(e => { document.getElementById("casenote").textContent = `Could not load the case data (${e.message}).`; });
+})();
+</script>
