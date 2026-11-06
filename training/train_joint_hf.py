@@ -7,6 +7,14 @@
                 train_joint reads), plus each dataset's flow_split.json with --add_flow_split
                 (huggingface/download_angioflow_pyg.py). All three datasets at frame 0:
                 ~260 GB of zips fetched one at a time, ~25 GB kept; ~25 min on an L40S Job.
+                With --frames all every frame is kept: ~120 GB on disk (wall ~76 GB,
+                interior_lean ~42 GB) -- fits the RTX PRO 6000 flavor's 475 GB.
+  all frames    --frames all --train_frames_per_case K --test_frames 0,10,...,70: each epoch
+                trains on K random frames per case and tests at fixed frames, frame 0 logged
+                apart (train_joint.py). To warm-start from a frame-0 model, upload its best.pth
+                to <ckpt_repo>/_init/ and pass --init_ckpt _init/<name>.pth, with the peak LR
+                from training/lr_probe_joint.py (1e-4 for the v3data joint model) and
+                --lr_warmup_steps.
   run inputs    stats.pt, the interior stats and the inlet waveform, which are not in the
                 public dataset, from _meta/ of the PRIVATE checkpoint repo (--ckpt_repo).
                 The interior stats file is interior_stats_zeromax.pt with --press_zero_max,

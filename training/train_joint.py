@@ -49,7 +49,10 @@ from angioflow.visualize.sanity import save_joint_loss_curves
 _LOSS_TERMS = ["loss", "logmag", "huber", "smooth", "dir", "vel", "press"]
 HISTORY_FIELDS = (["epoch"] + [f"train_{k}" for k in _LOSS_TERMS] + [f"test_{k}" for k in _LOSS_TERMS]
                   + ["test_mse_wss", "test_mse_vel", "lr", "grad_norm_mean", "grad_norm_max",
-                     "grad_clip_frac", "epoch_time_s"])
+                     "grad_clip_frac", "epoch_time_s"]
+                  # --frames all: the frame-0 part of the test set, reported on its own
+                  + ["test_f0_loss", "test_f0_vel", "test_f0_mse_wss", "test_f0_mse_vel"])
+FRAME_FIELDS = ["epoch", "frame", "loss", "logmag", "huber", "vel", "press", "mse_wss", "mse_vel"]
 
 
 def add_model_args(parser):
@@ -158,6 +161,19 @@ def add_model_args(parser):
     g.add_argument("--init_from", default=None,
                    help="checkpoint (.pth) whose model weights initialise a NEW run (fresh optimizer, "
                         "scheduler, warmup, epoch 0); ignored when the run resumes from its own last.pth")
+    g.add_argument("--train_frames_per_case", type=int, default=0,
+                   help="--frames all: each epoch trains on this many random frames of every training "
+                        "case (a fresh draw per epoch, reproducible on resume); 0 = all frames every "
+                        "epoch. Sets the epoch length, so eval / plateau patience / checkpoints keep "
+                        "their per-epoch meaning (K=8: ~3,400 steps per epoch at batch 4)")
+    g.add_argument("--test_frames", default="",
+                   help="--frames all: comma-separated frames the test cases are evaluated at, e.g. "
+                        "0,10,20,30,40,50,60,70 (fixed every epoch). Default: every frame. Test loss "
+                        "(scheduler, best.pth) is the mean over them; frame 0 is also logged on its "
+                        "own (test_f0_* in history.csv) and every frame in test_frames.csv")
+    g.add_argument("--lr_warmup_steps", type=int, default=0,
+                   help="if > 0: linear LR warmup 0->lr over this many optimizer steps, replacing "
+                        "--lr_warmup_epochs; the plateau scheduler starts after it")
     g.add_argument("--resume_lr", type=float, default=None,
                    help="on resume, set the optimizer's LR to this (e.g. after raising --batch_size); "
                         "applied once -- a later resume from a checkpoint saved with the same value "
@@ -228,7 +244,10 @@ def build_dataset(args, exclude_keys):
         ds_kwargs["sanity_n_normal"] = 0          # 0 disables the dataset's sanity renders
     versions = args.versions.split(",") if args.versions else None
     if args.frames == "all":
-        return AngioFlowWallInteriorDataset(**ds_kwargs)
+        ds = AngioFlowWallInteriorDataset(**ds_kwargs)
+        if versions:                    # the all-frames dataset takes every dataset in save_dir
+            ds._index = [k for k in ds._index if k[0] in versions]
+        return ds
     frames = [int(t) for t in args.frames.split(",")]
     return AngioFlowWallInteriorDatasetT0(**ds_kwargs, versions=versions, frames=frames)
 
@@ -250,6 +269,41 @@ class _WallOnly:
     def __call__(self, data):
         wall, interior = data
         return self.t(wall), interior
+
+
+class FramesPerCaseSampler(torch.utils.data.Sampler):
+    """Each epoch: k random frames of every case among `indices` (dataset indices), all
+    shuffled together. The draw depends only on (seed, epoch), so a resumed run sees the
+    epochs it would have seen. Call set_epoch(epoch) before iterating."""
+
+    def __init__(self, dataset, indices, k, seed=0):
+        by_case = defaultdict(list)
+        for i in indices:
+            by_case[dataset._index[i][:2]].append(i)
+        self.groups = [by_case[c] for c in sorted(by_case)]
+        self.k, self.seed, self.epoch = k, seed, 0
+
+    def set_epoch(self, epoch):
+        self.epoch = epoch
+
+    def __len__(self):
+        return sum(min(self.k, len(g)) for g in self.groups)
+
+    def __iter__(self):
+        rng = np.random.default_rng((self.seed, self.epoch))
+        pick = np.concatenate([rng.choice(g, min(self.k, len(g)), replace=False) for g in self.groups])
+        rng.shuffle(pick)
+        return iter(pick.tolist())
+
+
+def evaluate_by_frame(model, loaders, waveform, device, args, y_mean, y_std, huber_delta, norm,
+                      max_batches=None):
+    """evaluate() per frame ({t: loader}); returns (sample-weighted mean, {t: metrics})."""
+    per = {t: evaluate(model, ld, waveform, device, args, y_mean, y_std, huber_delta, norm,
+                       max_batches=max_batches) for t, ld in loaders.items()}
+    w = {t: 1 if max_batches else len(ld.dataset) for t, ld in loaders.items()}
+    keys = set.intersection(*(set(m) for m in per.values()))
+    return {k: sum(per[t][k] * w[t] for t in per) / sum(w.values()) for k in keys}, per
 
 
 def joint_loss(wss, query_idx, vel, press, wall, interior, args, y_mean, y_std, huber_delta):
@@ -481,10 +535,31 @@ def main(args, epoch_end_hook=None):
     ]
     dataset.transform = _chain(*transforms)
 
-    train_loader = DataLoader(Subset(dataset, train_idx), batch_size=args.batch_size,
-                              shuffle=True, num_workers=args.num_workers, pin_memory=True)
-    test_loader = DataLoader(Subset(dataset, test_idx), batch_size=args.batch_size,
+    all_frames = args.frames == "all"
+    sampler = None
+    if all_frames and args.train_frames_per_case > 0:
+        sampler = FramesPerCaseSampler(dataset, train_idx, args.train_frames_per_case, seed=args.seed)
+        train_loader = DataLoader(dataset, batch_size=args.batch_size, sampler=sampler,
+                                  num_workers=args.num_workers, pin_memory=True)
+        print(f"[data] train: {args.train_frames_per_case} random frame(s) per case per epoch "
+              f"-> {len(sampler)} samples, {len(train_loader)} steps per epoch")
+    else:
+        assert not args.train_frames_per_case, "--train_frames_per_case needs --frames all"
+        train_loader = DataLoader(Subset(dataset, train_idx), batch_size=args.batch_size,
+                                  shuffle=True, num_workers=args.num_workers, pin_memory=True)
+    if args.test_frames:
+        assert all_frames, "--test_frames needs --frames all"
+        keep = {int(t) for t in args.test_frames.split(",")}
+        test_idx = [i for i in test_idx if dataset._index[i][2] in keep]
+    by_frame = defaultdict(list)
+    for i in test_idx:
+        by_frame[dataset._index[i][2]].append(i)
+    test_loaders = {t: DataLoader(Subset(dataset, by_frame[t]), batch_size=args.batch_size, shuffle=False,
+                                  num_workers=args.num_workers, pin_memory=True) for t in sorted(by_frame)}
+    test_loader = DataLoader(Subset(dataset, test_idx), batch_size=args.batch_size,      # sanity renders
                              shuffle=True, num_workers=args.num_workers, pin_memory=True)
+    print(f"[data] test: {len(test_idx)} samples at {len(by_frame)} frame(s)"
+          + (f" {sorted(by_frame)}" if len(by_frame) <= 20 else ""))
 
     waveform = load_waveform(args.waveform_path, length=1000, device=device)
     model = build_model(args, device)
@@ -510,6 +585,10 @@ def main(args, epoch_end_hook=None):
               f"best={init.get('best_loss', float('nan')):.4g}); optimizer/scheduler start fresh")
     history_path = os.path.join(ckpt_dir, "history.csv")
     init_history(history_path, epoch_start, HISTORY_FIELDS)
+    frames_path = os.path.join(ckpt_dir, "test_frames.csv")
+    if all_frames:
+        init_history(frames_path, epoch_start, FRAME_FIELDS)
+    global_step = epoch_start * len(train_loader)        # for --lr_warmup_steps on resume
 
     if args.wandb:
         import wandb
@@ -519,7 +598,10 @@ def main(args, epoch_end_hook=None):
     for epoch in range(epoch_start, args.total_epochs):
         t_epoch = time.perf_counter()
         model.train()
-        warming_up = apply_lr_warmup(optim, args, epoch)
+        if sampler is not None:
+            sampler.set_epoch(epoch)
+        if not args.lr_warmup_steps:
+            warming_up = apply_lr_warmup(optim, args, epoch)
         if hasattr(model, "redraw_projection"):
             model.redraw_projection.redraw_projections()
         tr = defaultdict(float)
@@ -532,6 +614,9 @@ def main(args, epoch_end_hook=None):
                     or torch.isnan(interior.press).any()):
                 print("[warn] NaN in targets — skipping batch")
                 continue
+            if args.lr_warmup_steps and global_step < args.lr_warmup_steps:
+                for pg in optim.param_groups:
+                    pg["lr"] = args.lr * (global_step + 1) / args.lr_warmup_steps
             optim.zero_grad()
             wss, query_idx, vel, press = model(wall, interior, waveform)
             loss, comps = joint_loss(wss, query_idx, vel, press, wall, interior, args,
@@ -544,6 +629,7 @@ def main(args, epoch_end_hook=None):
             gnorm_max = max(gnorm_max, gnorm.item())
             n_clipped += gnorm.item() > args.grad_clip_norm
             n_steps += 1
+            global_step += 1
             optim.step()
             if args.max_steps:
                 print(f"[step {n_steps:3d}] loss {loss.item():.4g}  {time.perf_counter() - t_step:.2f}s  "
@@ -560,9 +646,12 @@ def main(args, epoch_end_hook=None):
         gnorm_mean = gnorm_sum / max(n_steps, 1)
         clip_frac = n_clipped / max(n_steps, 1)
 
-        te = evaluate(model, test_loader, waveform, device, args, y_mean, y_std,
-                      huber_delta, norm, max_batches=args.max_steps)
+        if args.lr_warmup_steps:            # still warming up at the end of this epoch?
+            warming_up = global_step < args.lr_warmup_steps
+        te, te_frames = evaluate_by_frame(model, test_loaders, waveform, device, args, y_mean, y_std,
+                                          huber_delta, norm, max_batches=args.max_steps)
         te_loss = te["loss"]
+        f0 = te_frames.get(0) if all_frames else None
         if not warming_up:
             step_scheduler(sched, args, te_loss)
         lr_now = optim.param_groups[0]["lr"]
@@ -572,14 +661,21 @@ def main(args, epoch_end_hook=None):
               f"test_loss {te_loss:.4g} (logmag {te['logmag']:.4g} huber {te['huber']:.4g} "
               f"vel {te['vel']:.4g} press {te['press']:.4g})  "
               f"test_mse_wss {te['mse_wss']:.4g} (Pa/s)²  test_mse_vel {te['mse_vel']:.4g} (m/s)²  "
-              f"lr {lr_now:.2e}  gnorm {gnorm_mean:.3g} (max {gnorm_max:.3g}, clipped {clip_frac:.0%})",
+              f"lr {lr_now:.2e}  gnorm {gnorm_mean:.3g} (max {gnorm_max:.3g}, clipped {clip_frac:.0%})"
+              + (f"  | test frame 0: loss {f0['loss']:.4g} vel {f0['vel']:.4g}" if f0 else ""),
               flush=True)
+        if all_frames:
+            for t, m in te_frames.items():
+                append_history(frames_path, {"epoch": epoch, "frame": t, **{k: m[k] for k in FRAME_FIELDS[2:]}},
+                               FRAME_FIELDS)
         append_history(history_path, {
             "epoch": epoch, **{f"train_{k}": tr[k] / n for k in _LOSS_TERMS},
             **{f"test_{k}": te[k] for k in _LOSS_TERMS},
             "test_mse_wss": te["mse_wss"], "test_mse_vel": te["mse_vel"], "lr": lr_now,
             "grad_norm_mean": gnorm_mean, "grad_norm_max": gnorm_max, "grad_clip_frac": clip_frac,
-            "epoch_time_s": round(time.perf_counter() - t_epoch, 1)}, HISTORY_FIELDS)
+            "epoch_time_s": round(time.perf_counter() - t_epoch, 1),
+            **({f"test_f0_{k}": f0[k] for k in ("loss", "vel", "mse_wss", "mse_vel")} if f0 else {})},
+            HISTORY_FIELDS)
         try:                                              # a plotting hiccup must not kill training
             save_joint_loss_curves(history_path, os.path.join(ckpt_dir, "sanity", "loss_curves.png"))
         except Exception as e:
@@ -596,6 +692,7 @@ def main(args, epoch_end_hook=None):
         if args.wandb:
             wandb.log({**{f"train_{k}": v / n for k, v in tr.items()},
                        **{f"test_{k}": v for k, v in te.items()},
+                       **({f"test_f0_{k}": v for k, v in f0.items()} if f0 else {}),
                        "lr": lr_now, "grad_norm_mean": gnorm_mean,
                        "grad_norm_max": gnorm_max, "grad_clip_frac": clip_frac}, step=epoch)
 

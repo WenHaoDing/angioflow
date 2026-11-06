@@ -215,6 +215,9 @@ def save_joint_loss_curves(history_path: str, out_path: str):
     ax.plot(ep, test_loss, label="test")
     ax.scatter([ep[best]], [test_loss[best]], color="red", zorder=3,
                label=f"best {test_loss[best]:.4g} @ epoch {int(ep[best])}")
+    f0 = np.array([float(r.get("test_f0_loss") or "nan") for r in rows])
+    if np.isfinite(f0).any():                       # --frames all: frame-0 test cases alone
+        ax.plot(ep, f0, "--", label="test, frame 0")
     ax.set_yscale("log"); ax.set_title("total loss (scheduler / best.pth)"); ax.legend()
     for ax, key, title in [(axes[0, 1], "logmag", "WSS log-magnitude loss"),
                            (axes[0, 2], "huber", "WSS pointwise loss (normalized)"),
