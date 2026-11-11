@@ -69,7 +69,9 @@ from angioflow.training.train_hf import (CKPT_REPO, DATA_REPO, META_PREFIX, RESU
                                          run_files_on_hub)
 
 WORK_DIR = "/tmp/angioflow_joint_hf"
-JOINT_RESUME_FREE_KEYS = RESUME_FREE_KEYS | {"interior_dir", "no_data_sanity", "loader_start_method", "loader_timeout"}
+# init_from is a local path under --work_dir and is only read at epoch 0, so it may differ on resume
+JOINT_RESUME_FREE_KEYS = RESUME_FREE_KEYS | {"interior_dir", "no_data_sanity", "loader_start_method", "loader_timeout",
+                                             "init_from"}
 
 
 def parse_args():
