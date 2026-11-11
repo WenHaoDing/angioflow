@@ -202,6 +202,8 @@ With `--wandb`, the run logs to the `AngioFlowJoint` W&B project.
 
 ## 3. Train on a Hugging Face Job
 
+For the full guide to Jobs (Hub repos, `hf` CLI, resuming, writing a wrapper, known problems), see [HF_JOBS.md](HF_JOBS.md).
+
 [training/train_joint_hf.py](training/train_joint_hf.py) wraps `train_joint.main` and takes the same flags. The Job:
 
 1. downloads the data for `--versions` and `--frames` from AngioFlow-PyG;
@@ -237,7 +239,7 @@ hf jobs run --flavor rtx-pro-6000 --timeout 24h --secrets HF_TOKEN -d python:3.1
 - **`--max_steps N` never pushes.** Use it first, and for sizing the batch.
 - **Frame-0 vs all-frames:** the frame-0 Job downloads about 233 GB of zips and keeps only frame 0. An all-frames Job (`--frames all`) keeps everything.
 - **Epochs with all frames:** one epoch then holds about 80× as many samples, so lower `--total_epochs`.
-- **`--frames all` with extracted data hasn't been smoke-tested yet.** Test it before a long run.
+- **All-frames runs work on Jobs** (since 2026-11-06). Use `--train_frames_per_case` and `--test_frames`. The full walkthrough is in [HF_JOBS.md](HF_JOBS.md): launching, resuming, warm starts, monitoring, and the DataLoader hang that was fixed.
 
 ## 4. Evaluate
 
